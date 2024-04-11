@@ -235,7 +235,8 @@ int parse (struct solver* S, char* filename) {                            // Par
     if (ch == ' ' || ch == '\n') continue;
     if (ch == 'c') { read_until_new_line (input); continue; }
     ungetc (ch, input);
-    int lit = 0; tmp = fscanf (input, " %i ", &lit);       // Read a literal.
+    int lit = 0; tmp = fscanf (input, " %i ", &lit);  
+    printf("%d \n",lit);     // Read a literal.
     if (!lit) {                                            // If reaching the end of the clause
       int* clause = addClause (S, S->buffer, size, 1);     // Then add the clause to data_base
       if (!size || ((size == 1) && S->false[clause[0]]))   // Check for empty clause or conflicting unit
@@ -243,8 +244,22 @@ int parse (struct solver* S, char* filename) {                            // Par
       if ((size == 1) && !S->false[-clause[0]]) {          // Check for a new unit
         assign (S, clause, 1); }                           // Directly assign new units (forced = 1)
       size = 0; --nZeros; }                                // Reset buffer
-    else S->buffer[size++] = lit; }                        // Add literal to buffer
+    else S->buffer[size++] = lit;
+    printf("\n"); }                        // Add literal to buffer
   if (close == 1) fclose (input);                          // Close the formula file
   if (close == 2) pclose (input);                          // Close the formula pipe
   return SAT; }                                            // Return that no conflict was observed
+
+
 #endif //DPU
+void read_until_new_line_dpu( char * input,int* index) {
+    int ptr = 0;
+    while (input[ptr] != '\n') {
+        if (input[ptr] == '\0') {
+            printf("parse error: unexpected end of string");
+            exit(1);
+        }
+        ptr++;
+    }
+    *index = ptr+1;
+}                                          

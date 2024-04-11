@@ -24,6 +24,8 @@ int solve (struct solver* S);
 void initCDCL (struct solver* S, int n, int m);
 static void read_until_new_line (FILE * input);
 int parse (struct solver* S, char* filename);
+int parse_dpu(struct solver* S, char* buffer);
+void read_until_new_line_dpu( char * input,int* index);
 #endif //DPU
 
 

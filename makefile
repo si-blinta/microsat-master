@@ -3,10 +3,10 @@ HOST-CFLAGS       = -std=gnu99
 HOST-LIBS         = `dpu-pkg-config --cflags --libs dpu`
 DPU-CC            = dpu-upmem-dpurte-clang
 NB_TASKLETS       ?= 1
+all: clean dpu host 
 clean:
 	@rm -f bin/host bin/dpu
 	@echo "Cleaned"
-all: clean dpu host microsat
 
 dpu: src/dpu.c src/microsat.c 
 	@$(DPU-CC) -DNR_TASKLETS=$(NB_TASKLETS) -DDPU -o bin/dpu src/dpu.c src/microsat.c 
