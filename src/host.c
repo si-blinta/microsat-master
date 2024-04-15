@@ -38,7 +38,7 @@ int main(int argc, char **argv)
     abort();
   struct solver S, tmp;
   parse(&S, argv[1]);
-  show_solver_info_debug(S);
+  //show_solver_info_debug(S);
   uint32_t offsets[11];
   int vars[11];
   populate_offsets(offsets, S);
