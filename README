@@ -3,3 +3,8 @@
     Tried parsing in DPUs : failed because we dont have access to sscanf.(pretty complex without it ).
     TODO :
         Retry sending data with another approach , maybe serialize solver data and send them.
+
+12/04/2024:
+    Understand MicroSat memory management, parsing , every feature.
+    Make a document about it.
+    Prepare questions.
