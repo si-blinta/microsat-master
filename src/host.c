@@ -62,18 +62,17 @@ int main(int argc, char **argv)
   // Send the offsets of pointers in DB
   DPU_ASSERT(dpu_broadcast_to(set, "dpu_DB_offsets", 0, offsets, 11 * sizeof(uint32_t), DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
-
   DPU_FOREACH(set, dpu)
   {
     DPU_ASSERT(dpu_log_read(dpu, stdout));
   }
   DPU_ASSERT(dpu_free(set));
-  if (solve(&S) == SAT)
+  if (solve_with_param(&S,1) == SAT)
   {
     log_result(H"SAT");
-   
   }
   else
     log_result(H"UNSAT");
   show_solver_stats(S);*/
+  show_result(S);
 }

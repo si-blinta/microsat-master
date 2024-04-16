@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define MAX_MEMORY_DPU ((2 << 13)-1024) // here i let 1024 bytes for variables ( need to check how much we can get)
 enum
 {
   END = -9,
@@ -10,7 +11,7 @@ enum
   SAT = 1,
   MARK = 2,
   IMPLIED = 6,
-  MEM_MAX = (2 << 25)
+  MEM_MAX = MAX_MEMORY_DPU
 }; // 64 Kbytes is maximum memory that a dpu can allocate.(to modify)
 enum
 {
@@ -47,4 +48,6 @@ int parse(struct solver *S, char *filename);
 #endif // DPU
 void show_solver_info_debug(struct solver S);
 void show_solver_stats(struct solver S);
+void show_result(struct solver S);
+int solve_with_param(struct solver* S,int max_conflicts);
 #endif
