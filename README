@@ -8,3 +8,20 @@
     Understand MicroSat memory management, parsing , every feature.
     Make a document about it.
     Prepare questions.
+
+
+WEEK 2 : 15 => 21
+    -Code a logging interface for the solver.
+    -Make the option of configurations.
+    -Find a solution to do some Wram <> Mram switchs. (Fragment the data base into an array of databases).(super hard)
+    -Code the portolio method:
+        -Launch the host to get N formulas.
+        -(modify directly the values of variables : for exmaple F1:
+            a -b c,F2 = -a -b c)
+        -Send each formula to a dpu.
+        -Stop after a certain time, share with the host the learned clauses.
+        -Host decides which are important
+        -Host sends to dpus the important clauses.
+        -If a Dpu has Sat : gg
+        -If a Dpu has Unsat : : : : : give another job .
+        -Restart the Dpus

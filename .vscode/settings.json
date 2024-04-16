@@ -5,6 +5,8 @@
         "alloc.h": "c",
         "stdio.h": "c",
         "stdlib.h": "c",
-        "mram.h": "c"
+        "mram.h": "c",
+        "log.h": "c",
+        "attributes.h": "c"
     }
 }

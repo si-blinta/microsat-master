@@ -45,7 +45,7 @@ void addWatch (struct solver* S, int lit, int mem) {               // Add a watc
 
 int* getMemory (struct solver* S, int mem_size) {                  // Allocate memory of size mem_size
   if (S->mem_used > MEM_MAX - mem_size) {                          // In case the code is used within a code base
-    printf ("c out of memory\n"); exit (1); }
+    printf ("c out of memory | mem used %d|mem wanted to allocate %d\n",S->mem_used,mem_size); exit (1); }
   int *store = (S->DB + S->mem_used);                              // Compute a pointer to the new memory location
   S->mem_used += mem_size;                                         // Update the size of the used memory
   return store; }                                                  // Return the pointer
@@ -62,6 +62,7 @@ int* addClause (struct solver* S, int* in, int size, int irr) {    // Adds a cla
   return clause; }                                                 // Return the pointer to the clause is the database
 
 void reduceDB (struct solver* S, int k) {                     // Removes "less useful" lemmas from DB
+  printf("c reducing %d=>",S->nLemmas);
   while (S->nLemmas > S->maxLemmas) S->maxLemmas += 300;      // Allow more lemmas in the future
   S->nLemmas = 0;                                             // Reset the number of lemmas
 
@@ -78,7 +79,8 @@ void reduceDB (struct solver* S, int k) {                     // Removes "less u
     int count = 0, head = i;                                  // Get the lemma to which the head is pointing
     while (S->DB[i]) { int lit = S->DB[i++];                  // Count the number of literals
       if ((lit > 0) == S->model[abs (lit)]) count++; }        // That are satisfied by the current model
-    if (count < k) addClause (S, S->DB+head, i-head, 0); } }  // If the latter is smaller than k, add it back
+    if (count < k) addClause (S, S->DB+head, i-head, 0); }
+    printf("%d\n",S->nLemmas); }  // If the latter is smaller than k, add it back
 
 void bump (struct solver* S, int lit) {                       // Move the variable to the front of the decision list
   if (S->falses[lit] != IMPLIED) { S->falses[lit] = MARK;       // MARK the literal as involved if not a top-level unit
@@ -159,20 +161,20 @@ int solve (struct solver* S) {                                      // Determine
   int decision = S->head; S->res = 0;                               // Initialize the solver
   for (;;) {                                                        // Main solve loop
     int old_nLemmas = S->nLemmas;                                   // Store nLemmas to see whether propagate adds lemmas
-    //printf("propagating\n");
+    printf("propagating\n");
     if (propagate (S) == UNSAT) return UNSAT;                       // Propagation returns UNSAT for a root level conflict
 
     if (S->nLemmas > old_nLemmas) {                                 // If the last decision caused a conflict
-      //printf("new learned clause\n");
+      printf("new learned clause\n");
       decision = S->head;                                           // Reset the decision heuristic to head
       if (S->fast > (S->slow / 100) * 125) {                        // If fast average is substantially larger than slow average
-        //printf("c restarting after %i conflicts (%i %i) %i \n", S->res, S->fast, S->slow, S->nLemmas > S->maxLemmas);
+        printf("c restarting after %i conflicts (%i %i) %i \n", S->res, S->fast, S->slow, S->nLemmas > S->maxLemmas);
         S->res = 0; S->fast = (S->slow / 100) * 125; restart (S);   // Restart and update the averages
-        if (S->nLemmas > S->maxLemmas) reduceDB (S, 6); } }         // Reduce the DB when it contains too many lemmas
+        if (S->nLemmas > S->maxLemmas) reduceDB (S,6); } }         // Reduce the DB when it contains too many lemmas
 
     while (S->falses[decision] || S->falses[-decision]) {             // As long as the temporay decision is assigned
-      //printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
       decision = S->prev[decision]; 
+      printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
     
     }
     if (decision == 0) return SAT;                                  // If the end of the list is reached, then a solution is found
@@ -261,7 +263,7 @@ void show_solver_info_debug(struct solver S){
   for(int i = 0 ; i < S.mem_fixed;i++)
     printf("%d ",S.DB[i]);
   printf("\n");
-  printf("MEM MAX = %d BYTES \n",MEM_MAX);
+  printf("MEM MAX = %d BYTES \n",(int)(MEM_MAX*sizeof(int)));
   printf("mem fixed = %d INTS\n",S.mem_fixed);
   printf("model |index : %d|1st val %d| \n",(int)(S.model-S.DB),S.model[0]);
   printf("next |index : %d|1st val %d| \n",(int)(S.next-S.DB),S.next[0]);
@@ -288,4 +290,17 @@ void show_solver_stats(struct solver S){
   printf("slow      = %d\n",S.slow);
   printf("head      = %d\n",S.head);
   printf("res       = %d\n",S.res);
+}
+void show_result(struct solver S){
+  log_info("results:\n");
+  for(int i = 1; i < S.nVars+1;i++){
+    printf("%d ",S.DB[i]);
+  }
+  printf("\n");
+}
+int solve_with_param(struct solver* S,int max_conflicts)
+{
+  S->maxLemmas = max_conflicts;
+  S->fast = S->slow = 2000; // to watch
+  return solve(S);
 }
