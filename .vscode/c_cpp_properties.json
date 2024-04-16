@@ -4,8 +4,19 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/utilisateur/upmem-sdk/**",
-                "/home/utilisateur/upmem-sdk/include/dpu"
+                "/home/lomm/upmem-sdk/include/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-clang-x64"
+        },
+        {
+            "name": "lomm",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/lomm/upmem-sdk/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

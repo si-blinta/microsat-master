@@ -148,7 +148,7 @@ int propagate (struct solver* S) {                  // Performs unit propagation
         if ( S->falses[-clause[0]]) continue;        // If the other watched literal is satisfied continue
         if (!S->falses[ clause[0]]) {                // If the other watched literal is falsified,
           assign (S, clause, forced); }             // A unit clause is found, and the reason is set
-        else { if (forced) return UNSAT;            // Found a root level conflict -> UNSAT
+        else { if (forced) return UNSAT;            // Found a root level conflict -> UNSAT             
           int* lemma = analyze (S, clause);	        // Analyze the conflict return a conflict clause
           if (!lemma[1]) forced = 1;                // In case a unit clause is found, set forced flag
           assign (S, lemma, forced); break; } } } } // Assign the conflict clause as a unit
@@ -258,8 +258,49 @@ int parse (struct solver* S, char* filename) {                            // Par
 #endif //DPU                                      
 void show_solver_info_debug(struct solver S){
   log_debug("showing solver informations");
+  int partition[8] = {S.nVars+1,S.nVars+1,S.nVars+1,S.nVars,S.nVars+1,S.nVars+1,2*S.nVars+1,2*S.nVars+1};
+  int current = partition[0];
+  int cumul = 0;int j = 0;
   for(int i = 0 ; i < S.mem_fixed;i++)
-    printf("%d ",S.DB[i]);
+  {
+    if(cumul == current || i == 0)
+    {
+      switch (j)
+      {
+      case MODEL:
+        printf(ANSI_COLOR_YELLOW"model:");
+        break;
+      case NEXT:
+        printf(ANSI_COLOR_YELLOW"next:");
+        break;
+      case PREV:
+        printf(ANSI_COLOR_YELLOW"prev:");
+        break;
+      case BUFFER:
+        printf(ANSI_COLOR_YELLOW"buffer:");
+        break;
+      case REASON:
+        printf(ANSI_COLOR_YELLOW"reason:");
+        break;
+      case FALSESTACK:
+        printf(ANSI_COLOR_YELLOW"falseStack:");
+        break;
+      case FALSES:
+        printf(ANSI_COLOR_YELLOW"falses:");
+        break;
+      case FIRST:
+        printf(ANSI_COLOR_YELLOW"first:");
+        break;
+      default:
+        printf(ANSI_COLOR_YELLOW"clauses:");
+        break;
+      }
+      cumul = 0;
+      current=partition[j++];
+    }
+    printf(ANSI_COLOR_RESET"[%d,%d] ",i,S.DB[i]);
+    cumul++;
+  }  
   printf("\n");
   printf("MEM MAX = %d BYTES \n",MEM_MAX);
   printf("mem fixed = %d INTS\n",S.mem_fixed);

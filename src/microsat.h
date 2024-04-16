@@ -10,9 +10,19 @@ enum
   SAT = 1,
   MARK = 2,
   IMPLIED = 6,
-  MEM_MAX = (2 << 12)
+  MEM_MAX = (2 << 25)
 }; // 64 Kbytes is maximum memory that a dpu can allocate.(to modify)
-
+enum
+{
+  MODEL,
+  NEXT,
+  PREV,
+  BUFFER,
+  REASON,
+  FALSESTACK,
+  FALSES,
+  FIRST
+};
 struct solver
 { // The variables in the struct are described in the allocate procedure
   int *DB, nVars, nClauses, mem_used, mem_fixed, maxLemmas, nLemmas, *buffer, nConflicts, *model,

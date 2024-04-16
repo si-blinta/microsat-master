@@ -1,8 +1,8 @@
 #include "microsat.h"
-#include "hostTools.h"
+//#include "hostTools.h"
 #include "log.h"
 #define DPU_BINARY "bin/dpu"
-void populate_offsets(uint32_t offsets[11], struct solver S)
+/*void populate_offsets(uint32_t offsets[11], struct solver S)
 {
   log_info("populating offset");
   offsets[0] = S.model - S.DB;
@@ -31,15 +31,22 @@ void populate_vars(uint32_t vars[11], struct solver S)
   vars[8] = S.slow;
   vars[9] = S.head;
   vars[10] = S.res;
-}
+}*/
 int main(int argc, char **argv)
 {
   if (argc < 2)
     abort();
   struct solver S, tmp;
   parse(&S, argv[1]);
+  show_solver_info_debug(S);
+  //show_solver_stats(S);
+  solve(&S);
   //show_solver_info_debug(S);
-  uint32_t offsets[11];
+  //show_solver_stats(S);
+  //propagate(&S);
+  show_solver_info_debug(S);
+  //show_solver_info_debug(S);
+  /*uint32_t offsets[11];
   int vars[11];
   populate_offsets(offsets, S);
   populate_vars(vars, S);
@@ -68,5 +75,5 @@ int main(int argc, char **argv)
   }
   else
     log_result(H"UNSAT");
-  show_solver_stats(S);
+  show_solver_stats(S);*/
 }
