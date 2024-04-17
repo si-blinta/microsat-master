@@ -6,6 +6,7 @@
         "stdio.h": "c",
         "stdlib.h": "c",
         "mram.h": "c",
-        "dpu.h": "c"
+        "dpu.h": "c",
+        "string.h": "c"
     }
 }

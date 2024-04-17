@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/lomm/upmem-sdk/include/**"
+                "/home/utilisateur/upmem-sdk/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
