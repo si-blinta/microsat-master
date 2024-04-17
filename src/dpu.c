@@ -74,11 +74,9 @@ int main()
   populate_solver_context(&dpu_solver);
   if (solve(&dpu_solver) == SAT)
   {
-    log_result(D"SAT");
   }
   else
   {
-    log_result(D"UNSAT");
   }
   show_result(dpu_solver);
   return 0;

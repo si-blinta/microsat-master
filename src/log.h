@@ -9,9 +9,14 @@
 #define ANSI_COLOR_RESET "\x1b[0m"
 #define D "[DPU]"
 #define H "[HOST]"
-void log_error(char *error);
-void log_info(char *info);
-void log_debug(char *debug_msg);
-void log_result(char *result_msg);
+// Log levels
+#define LOG_LEVEL_DEBUG 0
+#define LOG_LEVEL_INFO 1
+#define LOG_LEVEL_WARNING 2
+#define LOG_LEVEL_ERROR 3
+
+// Log format
+#define LOG_FORMAT "[%s] [%s] %s\n"
+void log_message(int level, const char* format, ...);
 
 #endif // LOG_H
