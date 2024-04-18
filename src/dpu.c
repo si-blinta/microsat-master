@@ -6,6 +6,7 @@
 #include <barrier.h>       
 #include <defs.h>                                                                                 
 __mram_noinit int dpu_buffer[MEM_MAX];
+__host int first;
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
 __dma_aligned int DB[MEM_MAX];    // Very important : transfers from Wram <> mram need to be dma aligned else it would produce unexpected results
@@ -41,7 +42,7 @@ void DB_populate(){
 
 void populate_solver_context(struct solver *dpu_solver)
 { 
-  log_info("populating solver context");
+  //log_message(LOG_LEVEL_INFO,"populating solver context");
   DB_populate();                        // Dont forget that this function takes the number of INTS in the array.
   dpu_solver->DB = DB;
   dpu_solver->nVars = dpu_vars[0];
@@ -69,15 +70,21 @@ void populate_solver_context(struct solver *dpu_solver)
 }
 int main()
 {
-  mem_reset();   
   struct solver dpu_solver;
-  populate_solver_context(&dpu_solver);
-  if (solve(&dpu_solver) == SAT)
+  if(first == 0)
+    populate_solver_context(&dpu_solver);
+  int ret = solve(&dpu_solver,1);
+  if (ret == SAT)
   {
+    log_message(LOG_LEVEL_INFO,"SAT");
+    show_result(dpu_solver);
+  }
+  /*else if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"UNSAT");
   }
   else
-  {
-  }
-  show_result(dpu_solver);
+    log_message(LOG_LEVEL_INFO,"STOPPED");*/
+  first++;
   return 0;
 }

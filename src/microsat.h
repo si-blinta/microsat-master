@@ -10,6 +10,7 @@ enum
   END = -9,
   UNSAT = 0,
   SAT = 1,
+  STOPPED=3,
   MARK = 2,
   IMPLIED = 6,
   MEM_MAX = MAX_MEMORY_DPU
@@ -42,7 +43,7 @@ void bump(struct solver *S, int lit);
 int implied(struct solver *S, int lit);
 int *analyze(struct solver *S, int *clause);
 int propagate(struct solver *S);
-int solve(struct solver *S);
+int solve(struct solver *S,int stop_it);
 #ifndef DPU
 void initCDCL(struct solver *S, int n, int m);
 static void read_until_new_line(FILE *input);
@@ -51,7 +52,6 @@ int parse(struct solver *S, char *filename);
 void show_solver_info_debug(struct solver S);
 void show_solver_stats(struct solver S);
 void show_result(struct solver S);
-int solve_with_param(struct solver* S,int max_conflicts);
 void assign_decision (struct solver* S, int lit);
 void unassign_decision(struct solver *S, int lit);
 void generate_portfolio(struct solver comb[1<<NUM_VARIABLES],char* filename);

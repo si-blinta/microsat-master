@@ -16,7 +16,7 @@
 #define LOG_LEVEL_ERROR 3
 
 // Log format
-#define LOG_FORMAT "[%s] [%s] %s\n"
-void log_message(int level, const char* format, ...);
+#define LOG_FORMAT "[%s] %s\n"
+void log_message(int level, const char* message);
 
 #endif // LOG_H

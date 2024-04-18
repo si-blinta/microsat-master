@@ -206,34 +206,6 @@ build:;
   return addClause(S, S->buffer, size, 0);
 } // Add new conflict clause to redundant DB
 
-int propagate (struct solver* S) {                  // Performs unit propagation
-  int forced = S->reason[abs (*S->processed)];      // Initialize forced flag
-  while (S->processed < S->assigned) {              // While unprocessed false literals
-    int lit = *(S->processed++);                    // Get first unprocessed literal
-    int* watch = &S->first[lit];                    // Obtain the first watch pointer
-    while (*watch != END) {                         // While there are watched clauses (watched by lit)
-      int i, unit = 1;                              // Let's assume that the clause is unit
-      int* clause = (S->DB + *watch + 1);	          // Get the clause from DB
-      if (clause[-2] ==   0) clause++;              // Set the pointer to the first literal in the clause
-      if (clause[ 0] == lit) clause[0] = clause[1]; // Ensure that the other watched literal is in front
-      for (i = 2; unit && clause[i]; i++)           // Scan the non-watched literals
-        if (!S->falses[clause[i]]) {                 // When clause[i] is not false, it is either true or unset
-          clause[1] = clause[i]; clause[i] = lit;   // Swap literals
-          int store = *watch; unit = 0;             // Store the old watch
-          *watch = S->DB[*watch];                   // Remove the watch from the list of lit
-          addWatch (S, clause[1], store);
-          printf("c added watch for %d in %d\n",clause[1],store); }         // Add the watch to the list of clause[1]
-      if (unit) {                                   // If the clause is indeed unit
-        clause[1] = lit; watch = (S->DB + *watch);  // Place lit at clause[1] and update next watch
-        if ( S->falses[-clause[0]]) continue;        // If the other watched literal is satisfied continue
-        if (!S->falses[ clause[0]]) {                // If the other watched literal is falsified,
-          assign (S, clause, forced); }             // A unit clause is found, and the reason is set
-        else { if (forced) return UNSAT;            // Found a root level conflict -> UNSAT             
-          int* lemma = analyze (S, clause);	        // Analyze the conflict return a conflict clause
-          if (!lemma[1]) forced = 1;                // In case a unit clause is found, set forced flag
-          assign (S, lemma, forced); break; } } } } // Assign the conflict clause as a unit
-  if (forced) S->forced = S->processed;	            // Set S->forced if applicable
-  return SAT; }	                                    // Finally, no conflict was found
 int propagate(struct solver *S)
 {                                             // Performs unit propagation
   int forced = S->reason[abs(*S->processed)]; // Initialize forced flag
@@ -287,11 +259,11 @@ int propagate(struct solver *S)
   return SAT;
 } // Finally, no conflict was found
 
-int solve(struct solver *S)
+int solve(struct solver *S,int stop_it)
 { // Determine satisfiability
   int decision = S->head;
   S->res = 0; // Initialize the solver
-  for (;;)
+  for (int i = 0; i < stop_it ; i++)
   {                               // Main solve loop
     int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
     // printf("propagating\n");
@@ -310,6 +282,7 @@ int solve(struct solver *S)
         restart(S); // Restart and update the averages
         if (S->nLemmas > S->maxLemmas)
           reduceDB(S, 6);
+          printf("c reduced\n");
       }
     } // Reduce the DB when it contains too many lemmas
 
@@ -326,6 +299,7 @@ int solve(struct solver *S)
     decision = abs(decision);
     S->reason[decision] = 0;
   }
+  return STOPPED;
 } // Decisions have no reason clauses
 #ifndef DPU
 void initCDCL(struct solver *S, int n, int m)
@@ -337,7 +311,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = 10;         // Initial maximum number of learnt clauses
+  S->maxLemmas = 2000;         // Initial maximum number of learnt clauses
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
@@ -446,7 +420,7 @@ int parse(struct solver *S, char *filename)
 #endif // DPU
 void show_solver_info_debug(struct solver S)
 {
-  log_debug("showing solver informations");
+  log_message(LOG_LEVEL_INFO,"Solver data base");
   int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1,__INT_MAX__};
   int current = partition[0];
   int cumul = 0;
@@ -495,7 +469,7 @@ void show_solver_info_debug(struct solver S)
 }
 void show_solver_stats(struct solver S)
 {
-  log_debug("showing solver state");
+  log_message(LOG_LEVEL_INFO,"Solver stats");
   printf("nVars     = %d\n", S.nVars);
   printf("nClauses  = %d\n", S.nClauses);
   printf("mem_used  = %d\n", S.mem_used);
@@ -521,18 +495,12 @@ void show_solver_stats(struct solver S)
 }
 void show_result(struct solver S)
 {
-  log_info("results:\n");
+  log_message(LOG_LEVEL_INFO,"Results :");
   for (int i = 0; i < S.nVars + 1; i++)
   {
     printf("[%d,%d] ",i,(int)S.model[i]);
   }
   printf("\n");
-}
-int solve_with_param(struct solver *S, int max_conflicts)
-{
-  S->maxLemmas = max_conflicts;
-  S->fast = S->slow = 2000; // to watch
-  return solve(S);
 }
 void assign_decision(struct solver *S, int lit)
 {
@@ -548,18 +516,3 @@ void unassign_decision(struct solver *S, int lit)
   S->reason[abs(lit)] = 0;
   S->model[abs(lit)] = -(lit > 0);
 }
-#ifndef DPU
-void generate_portfolio(struct solver comb[1<<NUM_VARIABLES],char* filename) {
-    int i, j;
-    // Loop through all numbers from 0 to 2^NUM_VARIABLES - 1
-    for (i = 0; i < (1 << NUM_VARIABLES); i++) {
-        parse(&comb[i],filename);
-        // Loop through each variable
-        for (j = 0; j < NUM_VARIABLES; j++) {
-            // Check if jth bit is set in i
-            assign_decision(&comb[i],(i >> j) & 1 ? j + 1 : -(j + 1));
-        }
-    }
-}
-
-#endif

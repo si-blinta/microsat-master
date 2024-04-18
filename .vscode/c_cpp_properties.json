@@ -16,7 +16,7 @@
             "name": "lomm",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/lomm/upmem-sdk/include/**"
+                "/home/lomm/upmem-sdk/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
