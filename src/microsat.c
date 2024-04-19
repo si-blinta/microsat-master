@@ -264,7 +264,7 @@ int solve(struct solver *S,int stop_it)
   int decision = S->head;
   S->res = 0; // Initialize the solver
   for (int i = 0; i < stop_it ; i++)
-  {                               // Main solve loop
+  {                              // Main solve loop
     int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
     // printf("propagating\n");
     if (propagate(S) == UNSAT)
@@ -291,7 +291,7 @@ int solve(struct solver *S,int stop_it)
       decision = S->prev[decision];
       // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
     }
-    if (decision == 0)
+    if (decision == 0 && i != 0)
       return SAT;                                         // If the end of the list is reached, then a solution is found
     decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
     S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
@@ -315,6 +315,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
+  memset(S->DB,0,MEM_MAX*sizeof(int));
   S->model = getMemory(S, n + 1);               // Full assignment of the (Boolean) variables (initially set to false)
   S->next = getMemory(S, n + 1);                // Next variable in the heuristic order
   S->prev = getMemory(S, n + 1);                // Previous variable in the heuristic order
@@ -509,10 +510,9 @@ void assign_decision(struct solver *S, int lit)
   S->reason[abs(lit)] = 0;
   S->model[abs(lit)] = (lit > 0);
 }
-void unassign_decision(struct solver *S, int lit)
+
+void unassign_last_decision(struct solver *S)
 {
-  S->falses[-lit] = 0;
-  *(S->assigned--) = -lit;
-  S->reason[abs(lit)] = 0;
-  S->model[abs(lit)] = -(lit > 0);
+  int lit = *(--S->assigned);
+  unassign(S,lit);
 }

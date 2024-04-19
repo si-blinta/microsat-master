@@ -25,3 +25,13 @@ WEEK 2 : 15 => 21
         -If a Dpu has Sat : gg
         -If a Dpu has Unsat : : : : : give another job .
         -Restart the Dpus
+
+
+
+
+NOTES : 
+
+    RELAUNCHING : 
+        -ONLY IF STOPPED.
+        -FOR UNSAT : CHOOSE ANOTHER JOB.
+        -SAT : STOP

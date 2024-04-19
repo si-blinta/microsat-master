@@ -8,6 +8,12 @@
         "mram.h": "c",
         "dpu.h": "c",
         "string.h": "c",
-        "stdarg.h": "c"
+        "stdarg.h": "c",
+        "*.tcc": "c",
+        "deque": "c",
+        "string": "c",
+        "vector": "c",
+        "system_error": "c",
+        "array": "c"
     }
 }

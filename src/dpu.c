@@ -10,6 +10,7 @@ __host int first;
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
 __dma_aligned int DB[MEM_MAX];    // Very important : transfers from Wram <> mram need to be dma aligned else it would produce unexpected results
+__host int dpu_flag;
 void DB_populate(){
   int n64 = (MEM_MAX*sizeof(int))/64;
   int mem_needed = 0;
@@ -73,18 +74,16 @@ int main()
   struct solver dpu_solver;
   if(first == 0)
     populate_solver_context(&dpu_solver);
-  int ret = solve(&dpu_solver,1);
-  if (ret == SAT)
-  {
+  //if(dpu_flag == STOPPED)
+  dpu_flag = solve(&dpu_solver,1);
+  //dpu_solver.DB[0]=0;
+  if(dpu_flag == SAT )
     log_message(LOG_LEVEL_INFO,"SAT");
-    show_result(dpu_solver);
-  }
-  /*else if(ret == UNSAT)
-  {
+  if(dpu_flag == UNSAT )
     log_message(LOG_LEVEL_INFO,"UNSAT");
-  }
   else
-    log_message(LOG_LEVEL_INFO,"STOPPED");*/
+    log_message(LOG_LEVEL_INFO,"STOPPED");
+  show_result(dpu_solver);
   first++;
   return 0;
 }

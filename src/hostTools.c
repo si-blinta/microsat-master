@@ -82,25 +82,28 @@ void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
     int offsets[11];
     int vars[11];
     int first = 0;
+    int flag  = 1;
     int i, j;
     // Loop through all numbers from 0 to 2^NUM_VARIABLES - 1
       DPU_FOREACH(set,dpu,i){
         // Loop through each variable
         for (j = 0; j < NUM_VARIABLES; j++) {
+            printf("assign %d ",(i >> j) & 1 ? j + 1 : -(j + 1));
             // Check if jth bit is set in i
-            assign_decision(&comb,(i >> j) & 1 ? j + 1 : -(j + 1));
+            //assign_decision(&comb,(i >> j) & 1 ? j + 1 : -(j + 1));
         }
-        populate_vars(vars, comb);
+        /*populate_vars(vars, comb);
         populate_offsets(offsets,comb); 
         DPU_ASSERT(dpu_copy_to(dpu, "dpu_buffer", 0, comb.DB, MEM_MAX * sizeof(int)));
         DPU_ASSERT(dpu_copy_to(dpu, "dpu_vars", 0, vars, 11 * sizeof(int)));
         DPU_ASSERT(dpu_copy_to(dpu, "dpu_DB_offsets", 0, offsets, 11 * sizeof(int)));
         DPU_ASSERT(dpu_copy_to(dpu, "first", 0, &first,sizeof(int)));
+        //DPU_ASSERT(dpu_copy_to(dpu, "dpu_flag", 0, &flag,sizeof(int)));
         //printf("\n");
         for (j = 0; j < NUM_VARIABLES; j++) {
             // Check if jth bit is set in i
             unassign_decision(&comb,(i >> j) & 1 ? j + 1 : -(j + 1));
-        }
+        }*/
       }
 
 }

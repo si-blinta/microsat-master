@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define NUM_VARIABLES 10
+#define NUM_VARIABLES 2
 #define MAX_MEMORY_DPU ((2 << 13)-1024) // here i let 1024 bytes for variables ( need to check how much we can get)
 enum
 {
@@ -53,6 +53,5 @@ void show_solver_info_debug(struct solver S);
 void show_solver_stats(struct solver S);
 void show_result(struct solver S);
 void assign_decision (struct solver* S, int lit);
-void unassign_decision(struct solver *S, int lit);
-void generate_portfolio(struct solver comb[1<<NUM_VARIABLES],char* filename);
+void unassign_last_decision(struct solver *S);
 #endif
