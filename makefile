@@ -5,8 +5,8 @@ DPU-CC            = dpu-upmem-dpurte-clang
 NB_TASKLETS       ?= 1
 all: clean dpu host
 
-local:
-	@gcc src/host.c src/microsat.c src/log.c $(HOST-CFLAGS) -o bin/local
+local: src/host.c src/microsat.c src/log.c src/portfolio.c
+	@gcc src/host.c src/microsat.c src/log.c src/portfolio.c $(HOST-CFLAGS) -o bin/local
 
 clean:
 	@rm -f bin/host bin/dpu bin/local

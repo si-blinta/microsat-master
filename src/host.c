@@ -1,6 +1,7 @@
 #include "microsat.h"
-#include "hostTools.h"
+//#include "hostTools.h"
 #include "log.h"
+#include <stdint.h>
 #include "time.h"
 #include "portfolio.h"
 #define DPU_BINARY "bin/dpu"
@@ -42,14 +43,16 @@ int main(int argc, char **argv)
     abort();
   struct solver master;
   int ret = parse(&master,argv[1]);
+  //printf("%d\n",solve(&master,100));
   struct solver* S = portfolio_generate(&master);
+  //show_solver_info_debug(S[0]);
   //portfolio_print_all_info(S);
   if(ret == UNSAT)
   {
     log_message(LOG_LEVEL_INFO,"parsing UNSAT");
     exit(0);
   }
-  ret = solve(&master,100);;
+  ret = solve(&master,1000);;
   if(ret == UNSAT)
     log_message(LOG_LEVEL_INFO,"MASTER UNSAT");
   else if(ret == SAT)
@@ -57,15 +60,24 @@ int main(int argc, char **argv)
   else
     log_message(LOG_LEVEL_INFO,"MASTER STOPPED");
   show_result(master);
-  for(int i = 0 ; i < portfolio_get_length(S);i++)
+  for(int i = 0; i < portfolio_get_length(S);i++)
   {
-    ret = solve(&S[i],10000);
+    ret = solve(&S[i],100);
     if(ret == SAT)
     {
       log_message(LOG_LEVEL_INFO,"PORTFOLIO SAT");
       show_result(S[i]);
+      break;
     }
   }
 
 
 } 
+/**
+ * 
+ * READ MEEEEEEEEEEEEEEEEE
+ * I NEED TO FIX THE PROBLEM USING THE CNF PRIME4, THIS CNF MUST BE SAT ALTHOUGH I CANT GET IT SAT WITH PORTFOLIO APPROACH FOR SOME REASON . 
+ * 
+ * 
+ * 
+*/

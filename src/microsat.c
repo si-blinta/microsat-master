@@ -1,28 +1,3 @@
-/*********************************************************************[microsat.c]***
-
-  The MIT License
-
-  Copyright (c) 2014-2018 Marijn Heule
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
-
-*************************************************************************************/
 #include "microsat.h"
 #include "log.h"
 
@@ -266,7 +241,7 @@ int solve(struct solver *S,int stop_it)
   for (int i = 0; i < stop_it ; i++)
   {                              // Main solve loop
     int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    // printf("propagating\n");
+    //printf("propagating\n");
     if (propagate(S) == UNSAT)
       return UNSAT; // Propagation returns UNSAT for a root level conflict
 
@@ -291,7 +266,7 @@ int solve(struct solver *S,int stop_it)
       decision = S->prev[decision];
       // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
     }
-    if (decision == 0 && i != 0)
+    if (decision == 0)
       return SAT;                                         // If the end of the list is reached, then a solution is found
     decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
     S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
@@ -505,10 +480,22 @@ void show_result(struct solver S)
 }
 void assign_decision(struct solver *S, int lit)
 {
-  S->falses[-lit] = 1;
+  /*S->falses[-lit] = IMPLIED;
   *(S->assigned++) = -lit;
   S->reason[abs(lit)] = 0;
-  S->model[abs(lit)] = (lit > 0);
+  S->model[abs(lit)] = (lit > 0);*/
+  int watch = S->first[lit]; // Obtain the first watch pointer
+  if(watch == END)
+    goto skip;
+  int *clause = (S->DB + watch + 1); // Get the clause from DB
+  if (clause[-2] == 0)
+    clause++;                         // Set the pointer to the first literal in the clause
+  if (clause[0] == lit)
+    clause[0] = clause[1];            // Ensure that the other watched literal is in front
+  if(clause[1] != lit)
+  assign(S,clause+1,1);
+skip:
+
 }
 
 void unassign_last_decision(struct solver *S)
