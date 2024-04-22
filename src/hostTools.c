@@ -195,6 +195,8 @@ void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
     log_message(LOG_LEVEL_INFO,"DPU SAT");
     show_result(dpu_solver);
   }
+  else
+     log_message(LOG_LEVEL_INFO,"DPU UNSAT");
   dpu_free(set);
 }
 void HOST_TOOLS_parallel_transfer(char* shared_buffer,size_t buffer_size,uint32_t nb_of_dpus,struct dpu_set_t set)

@@ -8,7 +8,7 @@
 #endif
 #define MAX_MEMORY_DPU (1 << 14) - 2048 // 64KB since we allocate 2 ^14 size of int minus 8184 bytes. (for variables)
 #define MAX_CLAUSE_SIZE 2
-#define MAX_LEARNT_CLAUSES 50
+#define MAX_LEARNT_CLAUSES 5
 enum
 {
   END = -9,
