@@ -8,7 +8,7 @@ c
 c NOTE: Part of the collection at the Forschungsinstitut fuer 
 c       anwendungsorientierte Wissensverarbeitung in Ulm Germany.
 c
-c NOTE: Not satisfiable : Nader with my cpu : 77 sec.
+c NOTE: Not satisfiable
 c
 p cnf 110 561
 -1 -11 0

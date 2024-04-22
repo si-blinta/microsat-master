@@ -480,25 +480,12 @@ void show_result(struct solver S)
 }
 void assign_decision(struct solver *S, int lit)
 {
-  /*S->falses[-lit] = IMPLIED;
-  *(S->assigned++) = -lit;
-  S->reason[abs(lit)] = 0;
-  S->model[abs(lit)] = (lit > 0);*/
   int watch = S->first[lit]; // Obtain the first watch pointer
-  if(watch == END)
-    goto skip;
-  int *clause = (S->DB + watch + 1); // Get the clause from DB
-  if (clause[-2] == 0)
-    clause++;                         // Set the pointer to the first literal in the clause
-  if (clause[0] == lit)
-    clause[0] = clause[1];            // Ensure that the other watched literal is in front
-  if(clause[1] != lit)
-  assign(S,clause+1,1);
-skip:
-
+  int *clause = (S->DB + watch); // Get the clause from DB  
+  assign(S,clause+2,1);
 }
 
-void unassign_last_decision(struct solver *S)
+void unassign_last_decision(struct solver *S) 
 {
   int lit = *(--S->assigned);
   unassign(S,lit);

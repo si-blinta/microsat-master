@@ -1,5 +1,5 @@
 #include "microsat.h"
-//#include "hostTools.h"
+#include "hostTools.h"
 #include "log.h"
 #include <stdint.h>
 #include "time.h"
@@ -43,15 +43,35 @@ int main(int argc, char **argv)
     abort();
   struct solver master;
   int ret = parse(&master,argv[1]);
-  //printf("%d\n",solve(&master,100));
-  //struct solver* S = portfolio_generate(&master);
-  //show_solver_info_debug(S[0]);
-  //portfolio_print_all_info(S);
+  log_message(LOG_LEVEL_INFO,"parsing finished");
+  struct dpu_set_t set,dpu;
+  uint32_t nb_dpus = 2; 
+  int first = 0;
+  HOST_TOOLS_allocate_dpus(&set,&nb_dpus);
+  HOST_TOOLS_compile(1);
+  dpu_load(set,DPU_BINARY,NULL);
+  int offsets[11];int vars[11];
+
+  populate_offsets(offsets,master);
+  populate_vars(vars,master);
+  HOST_TOOLS_send_id(set);
+  DPU_ASSERT(dpu_broadcast_to(set,"first",0,&first,sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_buffer",0,master.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
+  
+  DPU_FOREACH(set,dpu)
+  {
+    DPU_ASSERT(dpu_log_read(dpu,stdout));
+  }
+
   if(ret == UNSAT)
   {
     log_message(LOG_LEVEL_INFO,"parsing UNSAT");
     exit(0);
   }
+
   time(&start);
   ret = solve(&master,INT32_MAX);
   time(&end);
@@ -63,29 +83,6 @@ int main(int argc, char **argv)
     log_message(LOG_LEVEL_INFO,"MASTER SAT");
   else
     log_message(LOG_LEVEL_INFO,"MASTER STOPPED");
-  //show_result(master);
   printf("%lf\n",duration);
-  /*for(int i = 0; i < portfolio_get_length(S);i++)
-  {
-    ret = solve(&S[i],INT32_MAX);
-    if(ret == SAT)
-    {
-      log_message(LOG_LEVEL_INFO,"PORTFOLIO SAT");
-      show_result(S[i]);
-      break;
-    }
-  }
-  if(ret == UNSAT)
-  {
-    log_message(LOG_LEVEL_INFO,"PORTFOLIO UNSAT");
-  }*/
-
+  show_result(master);
 } 
-/**
- * 
- * READ MEEEEEEEEEEEEEEEEE
- * I NEED TO FIX THE PROBLEM USING THE CNF PRIME4, THIS CNF MUST BE SAT ALTHOUGH I CANT GET IT SAT WITH PORTFOLIO APPROACH FOR SOME REASON . 
- * 
- * READ MEEE , YOU WILL NEED TO MODIFY PORTFOLIO GENERATE, TO JUST SEND DATA AND NOT ALLOCATE EVERY THING
- * 
-*/

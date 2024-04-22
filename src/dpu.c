@@ -11,6 +11,7 @@ __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
 __dma_aligned int DB[MEM_MAX];    // Very important : transfers from Wram <> mram need to be dma aligned else it would produce unexpected results
 __host int dpu_flag;
+__host uint32_t dpu_id;
 void DB_populate(){
   int n64 = (MEM_MAX*sizeof(int))/64;
   int mem_needed = 0;
@@ -43,9 +44,9 @@ void DB_populate(){
 
 void populate_solver_context(struct solver *dpu_solver)
 { 
-  //log_message(LOG_LEVEL_INFO,"populating solver context");
-  //DB_populate();                        // Dont forget that this function takes the number of INTS in the array.
-  dpu_solver->DB = /*DB*/dpu_buffer;
+  log_message(LOG_LEVEL_INFO,"populating solver context");
+  DB_populate();                       
+  dpu_solver->DB = DB;
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
@@ -73,17 +74,24 @@ int main()
 {
   struct solver dpu_solver;
   if(first == 0)
+  {
     populate_solver_context(&dpu_solver);
+    for (int j = 0; j < dpu_solver.nVars; j++) {
+            assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+            //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+        }
+  }
   //if(dpu_flag == STOPPED)
-  dpu_flag = solve(&dpu_solver,1);
+  /*dpu_flag = solve(&dpu_solver,5);
   //dpu_solver.DB[0]=0;
   if(dpu_flag == SAT )
     log_message(LOG_LEVEL_INFO,"SAT");
   if(dpu_flag == UNSAT )
     log_message(LOG_LEVEL_INFO,"UNSAT");
   else
-    log_message(LOG_LEVEL_INFO,"STOPPED");
-  show_result(dpu_solver);
-  first++;
+    log_message(LOG_LEVEL_INFO,"STOPPED");*/
+  //show_result(dpu_solver);
+  //show_solver_info_debug(dpu_solver);
+  first++;  
   return 0;
 }

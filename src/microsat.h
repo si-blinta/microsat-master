@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define NUM_VARIABLES 2
-#define MAX_MEMORY_DPU (1<<22)/*((2 << 13)-1024)*/ // here i let 1024 bytes for variables ( need to check how much we can get)
+#define MAX_MEMORY_DPU ((2 << 13)-1024) // here i let 1024 bytes for variables ( need to check how much we can get)
 enum
 {
   END = -9,
