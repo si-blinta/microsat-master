@@ -1,6 +1,7 @@
 #include "hostTools.h"
 #include "microsat.h"
 #include "log.h"
+#include <time.h>
 void HOST_TOOLS_parse_args(int argc, char **argv, uint32_t *nb_dpus, uint8_t *nb_tasklets, uint32_t *nb_boots, uint32_t *nb_blocks_to_mine)
 {
   if (argc < 5)
@@ -75,42 +76,128 @@ static void populate_vars(uint32_t vars[11], struct solver S)
   vars[9] = S.head;
   vars[10] = S.res;
 }
-void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
-    struct solver comb;
-    struct dpu_set_t dpu;
-    parse(&comb,filename);
-    int offsets[11];
-    int vars[11];
-    int first = 0;
-    int flag  = 1;
-    int i, j;
-    // Loop through all numbers from 0 to 2^NUM_VARIABLES - 1
-      DPU_FOREACH(set,dpu,i){
-        // Loop through each variable
-        for (j = 0; j < NUM_VARIABLES; j++) {
-            printf("assign %d ",(i >> j) & 1 ? j + 1 : -(j + 1));
-            // Check if jth bit is set in i
-            //assign_decision(&comb,(i >> j) & 1 ? j + 1 : -(j + 1));
+bool compareClauses(int clause1[], int size1, int clause2[], int size2) {
+    if (size1 != size2) {
+        return false; // Clauses have different sizes, so they are not equal
+    }
+    for (int i = 0; i < size1; i++) {
+        if (clause1[i] != clause2[i]) {
+            return false; // Clauses differ at some position, so they are not equal
         }
-        /*populate_vars(vars, comb);
-        populate_offsets(offsets,comb); 
-        DPU_ASSERT(dpu_copy_to(dpu, "dpu_buffer", 0, comb.DB, MEM_MAX * sizeof(int)));
-        DPU_ASSERT(dpu_copy_to(dpu, "dpu_vars", 0, vars, 11 * sizeof(int)));
-        DPU_ASSERT(dpu_copy_to(dpu, "dpu_DB_offsets", 0, offsets, 11 * sizeof(int)));
-        DPU_ASSERT(dpu_copy_to(dpu, "first", 0, &first,sizeof(int)));
-        //DPU_ASSERT(dpu_copy_to(dpu, "dpu_flag", 0, &flag,sizeof(int)));
-        //printf("\n");
-        for (j = 0; j < NUM_VARIABLES; j++) {
-            // Check if jth bit is set in i
-            unassign_decision(&comb,(i >> j) & 1 ? j + 1 : -(j + 1));
-        }*/
+    }
+    return true; // Clauses are equal
+}
+void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
+  int learnt_clauses[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
+  int learnt_clause_sizes[MAX_LEARNT_CLAUSES] = {0}; // Track the size of learned clauses for each DPU
+  int learnt_clause_count = 0; // Track the total count of learned clauses
+  struct solver dpu_solver;
+  int ret = parse(&dpu_solver,filename);
+  if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
+    exit(0);
+  }
+  log_message(LOG_LEVEL_INFO,"parsing finished");
+  struct dpu_set_t dpu;
+  uint32_t nb_dpus = 1024; 
+  int first = 0;
+  int dpu_flag = UNSAT;
+  int unsat_cpt = 0;
+  int nb_boot = 0;
+  int sat = 0;
+  int offsets[11];int vars[11];
+  populate_offsets(offsets,dpu_solver);
+  populate_vars(vars,dpu_solver);
+  HOST_TOOLS_send_id(set);
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
+  clock_t start,end;
+  double duration;
+  start = clock();
+  while(unsat_cpt < 1024 && !sat)
+  {
+    int learnt_clauses_per_launch = 0;
+    unsat_cpt = 0;
+    log_message(LOG_LEVEL_INFO,"Launching");
+    DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));  // If error : halt(), meaning that no memory is left.
+    DPU_FOREACH(set,dpu,nb_boot)
+    {
+      //DPU_ASSERT(dpu_log_read(dpu,stdout));
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_flag",0,&dpu_flag,sizeof(int)));
+      if(dpu_flag == SAT)
+      {
+        DPU_ASSERT(dpu_copy_from(dpu,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int)));
+        sat = 1;
+        break;
       }
-
+      if(dpu_flag == UNSAT)
+      {
+        unsat_cpt++;
+        if(nb_boot > 0 )
+          continue;
+      } 
+      //Add learned clauses.
+      DPU_ASSERT(dpu_copy_from(dpu,"mem_used",0,&dpu_solver.mem_used,sizeof(int)));
+      DPU_ASSERT(dpu_copy_from(dpu,"mem_fixed",0,&dpu_solver.mem_fixed,sizeof(int)));
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int)));
+      int i = dpu_solver.mem_fixed;
+      while (i < dpu_solver.mem_used) 
+      {
+        i += 2; // Move to the next element after the watch pointers
+        int clause_size = 0;
+        while (i < dpu_solver.mem_used && dpu_solver.DB[i] != 0)
+        {
+          clause_size++;
+          i++;
+        }
+        if(clause_size > 0 &&  dpu_solver.DB[i-clause_size]!= 0 && clause_size <= MAX_CLAUSE_SIZE)
+        {
+          bool duplicate = false;
+          // Check for duplicates
+          for (int j = 0; j < learnt_clause_count; j++) {
+            if (compareClauses(learnt_clauses[j], learnt_clause_sizes[j], dpu_solver.DB + i - clause_size, clause_size)) 
+            {
+              duplicate = true;
+              break;
+            }
+          }
+          if (!duplicate)
+          {
+            if (learnt_clause_count < MAX_LEARNT_CLAUSES) 
+            {
+            // Copy the learned clause to the array
+              memcpy(learnt_clauses[learnt_clause_count], dpu_solver.DB + i - clause_size, clause_size * sizeof(int));
+              learnt_clause_sizes[learnt_clause_count] = clause_size; // Store the size of the learned clause
+              learnt_clause_count++; // Increment the total count of learned clauses
+              learnt_clauses_per_launch++;
+            }
+          }
+        }  
+        i++;
+        }
+    }
+    //printf("unsat %d\n",unsat_cpt);
+    //printf("Newly learned clauses %d\n", learnt_clauses_per_launch);
+    if(learnt_clauses_per_launch != 0)
+    { 
+      DPU_ASSERT(dpu_broadcast_to(set, "learnt_clauses", 0, learnt_clauses + (learnt_clause_count - learnt_clauses_per_launch), learnt_clauses_per_launch * sizeof(int), DPU_XFER_DEFAULT));
+      DPU_ASSERT(dpu_broadcast_to(set, "learnt_clause_sizes", 0, learnt_clause_sizes + (learnt_clause_count - learnt_clauses_per_launch), learnt_clauses_per_launch * sizeof(int), DPU_XFER_DEFAULT));
+      DPU_ASSERT(dpu_broadcast_to(set, "learnt_clause_count", 0, &learnt_clauses_per_launch, sizeof(int), DPU_XFER_DEFAULT));
+    }
+  }
+  end = clock();
+  duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
+  printf("%lf ms\n",duration);
+  if(sat)
+  {
+    log_message(LOG_LEVEL_INFO,"DPU SAT");
+    show_result(dpu_solver);
+  }
+  dpu_free(set);
 }
 void HOST_TOOLS_parallel_transfer(char* shared_buffer,size_t buffer_size,uint32_t nb_of_dpus,struct dpu_set_t set)
 {
   dpu_xfer_t xfer;
-
-
-
 }

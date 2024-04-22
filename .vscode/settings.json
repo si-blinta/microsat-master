@@ -14,6 +14,8 @@
         "string": "c",
         "vector": "c",
         "system_error": "c",
-        "array": "c"
+        "array": "c",
+        "barrier.h": "c",
+        "atomic": "c"
     }
 }

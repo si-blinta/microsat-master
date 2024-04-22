@@ -3,8 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define NUM_VARIABLES 2
-#define MAX_MEMORY_DPU ((2 << 13)-1024) // here i let 1024 bytes for variables ( need to check how much we can get)
+#ifdef DPU
+#include <defs.h>
+#endif
+#define MAX_MEMORY_DPU (1 << 14) - 2048 // 64KB since we allocate 2 ^14 size of int minus 8184 bytes. (for variables)
+#define MAX_CLAUSE_SIZE 2
+#define MAX_LEARNT_CLAUSES 50
 enum
 {
   END = -9,
@@ -13,7 +17,8 @@ enum
   STOPPED=3,
   MARK = 2,
   IMPLIED = 6,
-  MEM_MAX = MAX_MEMORY_DPU
+  MEM_MAX = MAX_MEMORY_DPU,
+  NO_RELAUNCH = 99
 }; // 64 Kbytes is maximum memory that a dpu can allocate.(to modify)
 enum
 {

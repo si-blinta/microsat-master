@@ -25,11 +25,11 @@ void addWatch(struct solver *S, int lit, int mem)
   S->DB[mem] = S->first[lit];
   S->first[lit] = mem;
 } // By updating the database and the pointers
-
+#ifndef DPU
 int *getMemory(struct solver *S, int mem_size)
 { // Allocate memory of size mem_size
   if (S->mem_used > MEM_MAX - mem_size)
-  { // In case the code is used within a code base
+  { // In case the code is used within a code base    
     printf("c out of memory | mem used %d|mem wanted to allocate %d\n", S->mem_used, mem_size);
     exit(1);
   }
@@ -37,7 +37,19 @@ int *getMemory(struct solver *S, int mem_size)
   S->mem_used += mem_size;            // Update the size of the used memory
   return store;
 } // Return the pointer
-
+#else
+int *getMemory(struct solver *S, int mem_size)
+{ // Allocate memory of size mem_size
+  if (S->mem_used > MEM_MAX - mem_size)
+  { // In case the code is used within a code base    
+    printf("c out of memory | mem used %d|mem wanted to allocate %d\n", S->mem_used, mem_size);
+    halt();
+  }
+  int *store = (S->DB + S->mem_used); // Compute a pointer to the new memory location
+  S->mem_used += mem_size;            // Update the size of the used memory
+  return store;
+}
+#endif
 int *addClause(struct solver *S, int *in, int size, int irr)
 {                                           // Adds a clause stored in *in of size size
   int i, used = S->mem_used;                // Store a pointer to the beginning of the clause
@@ -61,7 +73,7 @@ void reduceDB(struct solver *S, int k)
 { // Removes "less useful" lemmas from DB
   //printf("c reducing %d=>", S->nLemmas);
   while (S->nLemmas > S->maxLemmas)
-    S->maxLemmas += 300; // Allow more lemmas in the future
+    S->maxLemmas += 300; // Allow more lemmas in the future 
   S->nLemmas = 0;        // Reset the number of lemmas
 
   int i;
@@ -256,7 +268,8 @@ int solve(struct solver *S,int stop_it)
         S->fast = (S->slow / 100) * 125;
         restart(S); // Restart and update the averages
         if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6);
+          reduceDB(S, 6); 
+          //reduceDB(S,10);
           //printf("c reduced\n");
       }
     } // Reduce the DB when it contains too many lemmas
@@ -286,7 +299,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = 2000;         // Initial maximum number of learnt clauses  //2000 default
+  S->maxLemmas = 200;         // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
@@ -482,7 +495,8 @@ void assign_decision(struct solver *S, int lit)
 {
   int watch = S->first[lit]; // Obtain the first watch pointer
   int *clause = (S->DB + watch); // Get the clause from DB  
-  assign(S,clause+2,1);
+  if(clause[2] == lit)
+    assign(S,clause+2,1);
 }
 
 void unassign_last_decision(struct solver *S) 
