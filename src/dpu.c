@@ -44,8 +44,8 @@ void DB_populate(){
 void populate_solver_context(struct solver *dpu_solver)
 { 
   //log_message(LOG_LEVEL_INFO,"populating solver context");
-  DB_populate();                        // Dont forget that this function takes the number of INTS in the array.
-  dpu_solver->DB = DB;
+  //DB_populate();                        // Dont forget that this function takes the number of INTS in the array.
+  dpu_solver->DB = /*DB*/dpu_buffer;
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];

@@ -44,7 +44,7 @@ int main(int argc, char **argv)
   struct solver master;
   int ret = parse(&master,argv[1]);
   //printf("%d\n",solve(&master,100));
-  struct solver* S = portfolio_generate(&master);
+  //struct solver* S = portfolio_generate(&master);
   //show_solver_info_debug(S[0]);
   //portfolio_print_all_info(S);
   if(ret == UNSAT)
@@ -52,17 +52,22 @@ int main(int argc, char **argv)
     log_message(LOG_LEVEL_INFO,"parsing UNSAT");
     exit(0);
   }
-  ret = solve(&master,1000);;
+  time(&start);
+  ret = solve(&master,INT32_MAX);
+  time(&end);
+  duration = difftime(end,start);
+
   if(ret == UNSAT)
     log_message(LOG_LEVEL_INFO,"MASTER UNSAT");
   else if(ret == SAT)
     log_message(LOG_LEVEL_INFO,"MASTER SAT");
   else
     log_message(LOG_LEVEL_INFO,"MASTER STOPPED");
-  show_result(master);
-  for(int i = 0; i < portfolio_get_length(S);i++)
+  //show_result(master);
+  printf("%lf\n",duration);
+  /*for(int i = 0; i < portfolio_get_length(S);i++)
   {
-    ret = solve(&S[i],100);
+    ret = solve(&S[i],INT32_MAX);
     if(ret == SAT)
     {
       log_message(LOG_LEVEL_INFO,"PORTFOLIO SAT");
@@ -70,7 +75,10 @@ int main(int argc, char **argv)
       break;
     }
   }
-
+  if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"PORTFOLIO UNSAT");
+  }*/
 
 } 
 /**
@@ -78,6 +86,6 @@ int main(int argc, char **argv)
  * READ MEEEEEEEEEEEEEEEEE
  * I NEED TO FIX THE PROBLEM USING THE CNF PRIME4, THIS CNF MUST BE SAT ALTHOUGH I CANT GET IT SAT WITH PORTFOLIO APPROACH FOR SOME REASON . 
  * 
- * 
+ * READ MEEE , YOU WILL NEED TO MODIFY PORTFOLIO GENERATE, TO JUST SEND DATA AND NOT ALLOCATE EVERY THING
  * 
 */

@@ -59,7 +59,7 @@ int *addClause(struct solver *S, int *in, int size, int irr)
 
 void reduceDB(struct solver *S, int k)
 { // Removes "less useful" lemmas from DB
-  printf("c reducing %d=>", S->nLemmas);
+  //printf("c reducing %d=>", S->nLemmas);
   while (S->nLemmas > S->maxLemmas)
     S->maxLemmas += 300; // Allow more lemmas in the future
   S->nLemmas = 0;        // Reset the number of lemmas
@@ -91,7 +91,7 @@ void reduceDB(struct solver *S, int k)
     if (count < k)
       addClause(S, S->DB + head, i - head, 0);
   }
-  printf("%d\n", S->nLemmas);
+  //printf("%d\n", S->nLemmas);
 } // If the latter is smaller than k, add it back
 
 void bump(struct solver *S, int lit)
@@ -257,7 +257,7 @@ int solve(struct solver *S,int stop_it)
         restart(S); // Restart and update the averages
         if (S->nLemmas > S->maxLemmas)
           reduceDB(S, 6);
-          printf("c reduced\n");
+          //printf("c reduced\n");
       }
     } // Reduce the DB when it contains too many lemmas
 
@@ -286,7 +286,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = 2000;         // Initial maximum number of learnt clauses
+  S->maxLemmas = 2000;         // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
