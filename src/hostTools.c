@@ -152,6 +152,7 @@ void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
           clause_size++;
           i++;
         }
+        //todo: improve clause filtering
         if(clause_size > 0 &&  dpu_solver.DB[i-clause_size]!= 0 && clause_size <= MAX_CLAUSE_SIZE)
         {
           bool duplicate = false;
