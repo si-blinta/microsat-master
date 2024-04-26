@@ -228,6 +228,7 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
   DPU_FOREACH(set,dpu)
   {
+    dpu_log_read(dpu,stdout);
     DPU_ASSERT(dpu_copy_from(dpu,"dpu_flag",0,&dpu_flag,sizeof(int)));
     if(dpu_flag == SAT)
     {

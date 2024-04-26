@@ -40,14 +40,14 @@ void populate_solver_context(struct solver *dpu_solver)
   for (int j = 0; j < 10; j++) 
   {
     assign_decision(dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
 }
 int main()
 {
   struct solver dpu_solver;
   populate_solver_context(&dpu_solver);
-  dpu_flag = solve(&dpu_solver,10000);
+  dpu_flag = solve(&dpu_solver,10);
   if(dpu_flag == SAT )
   {
     show_result(dpu_solver);

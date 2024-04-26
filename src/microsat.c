@@ -672,6 +672,8 @@ int solve(struct solver *S,int stop_it)
 void assign_decision(struct solver *S, int lit)
 {
   int watch = S->first[lit]; // Obtain the first watch pointer
+  if(watch == END)
+    return;
   int __mram_ptr* clause = (S->DB + watch); // Get the clause from DB  
   if(clause[2] == lit)
     assign(S,clause+2,1);
