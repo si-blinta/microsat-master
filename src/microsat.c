@@ -671,12 +671,16 @@ int solve(struct solver *S,int stop_it)
 } // Decisions have no reason clauses
 void assign_decision(struct solver *S, int lit)
 {
-  int watch = S->first[lit]; // Obtain the first watch pointer
+  /*int watch = S->first[lit]; // Obtain the first watch pointer
   if(watch == END)
     return;
   int __mram_ptr* clause = (S->DB + watch); // Get the clause from DB  
   if(clause[2] == lit)
-    assign(S,clause+2,1);
+    assign(S,clause+2,1);*/
+  S->falses[-lit] = IMPLIED;          // Mark lit as true and IMPLIED if forced
+  *(S->assigned++) = -lit;            // Push it on the assignment stack
+  S->reason[abs(lit)] = END;          // Set the reason as undefined ( different from 0 ).
+  S->model[abs(lit)] = (lit > 0);
 }
 #endif // DPU
 
@@ -764,8 +768,6 @@ void show_result(struct solver S)
   }
   printf("\n");
 }
-
-
 void unassign_last_decision(struct solver *S) 
 {
   int lit = *(--S->assigned);

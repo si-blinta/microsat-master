@@ -20,6 +20,7 @@
         "type_traits": "c",
         "string_view": "c",
         "initializer_list": "c",
-        "utility": "c"
+        "utility": "c",
+        "time.h": "c"
     }
 }

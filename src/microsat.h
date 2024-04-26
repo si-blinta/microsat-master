@@ -8,6 +8,11 @@
 #endif
 #define MAX_CLAUSE_SIZE 2
 #define MAX_LEARNT_CLAUSES 5
+/*typedef struct {
+    int mem_used;
+    int mem_fixed;
+    int dpu_ret;
+} dpu_results_t;*/
 enum
 {
   END = -9,

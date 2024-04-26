@@ -1,7 +1,9 @@
 #ifndef HOST_TOOLS_H
 #define HOST_TOOLS_H
+#define NB_DPU 1024
 #include <dpu.h>
 #include <assert.h>
+#define roundup(n, m) ((n / m) * m + m)
 /**
  * @brief This function simply parse arguments from commandline and update variables.
  * @param argc Number of arguments.
@@ -41,4 +43,5 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
 */
 void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set);
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
+void HOST_TOOLS_incremental_launch(char* filename, struct dpu_set_t set);
 #endif // HOST_TOOLS_H

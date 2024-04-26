@@ -5,16 +5,20 @@
 #include "log.h"
 #include <barrier.h>       
 #include <defs.h>                                                                            
-__mram_noinit int dpu_buffer[MEM_MAX];
+
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
-__host int dpu_flag;
+__host int dpu_ret;
 __host uint32_t dpu_id;
+__host int mem_used;
+__host int mem_fixed;
 
+int first;
+int relaunch;
 void populate_solver_context(struct solver *dpu_solver)
 { 
   log_message(LOG_LEVEL_INFO,"populating solver context");                      
-  dpu_solver->DB = dpu_buffer;
+  dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
@@ -40,23 +44,13 @@ void populate_solver_context(struct solver *dpu_solver)
   for (int j = 0; j < 10; j++) 
   {
     assign_decision(dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
 }
 int main()
 {
-  struct solver dpu_solver;
-  populate_solver_context(&dpu_solver);
-  dpu_flag = solve(&dpu_solver,10);
-  if(dpu_flag == SAT )
-  {
-    show_result(dpu_solver);
-  }
-  return 0;
-}
-/**
- *  printf("relaunch flag %d\n",relaunch_flag);
-  if(relaunch_flag == NO_RELAUNCH)
+  //printf("relaunch flag %d\n",relaunch);
+  if(relaunch == NO_RELAUNCH)
   {
     return 0;
   }
@@ -65,23 +59,24 @@ int main()
   {
     populate_solver_context(&dpu_solver);
   }
-  else
+  /*else
   {
     // Update database with new learned clauses.
     for(int i = 0 ; i < learnt_clause_count;i++)
     {
       //addClause(&dpu_solver,learnt_clauses[i],learnt_clause_sizes[i],0);
     }
-  }
-  dpu_flag = solve(&dpu_solver,10000);
-  if(dpu_flag == SAT )
+  }*/
+  dpu_ret = solve(&dpu_solver,100);
+  if(dpu_ret == SAT )
   {
     log_message(LOG_LEVEL_INFO,"SAT");
+    show_result(dpu_solver);
   }
-  if(dpu_flag == UNSAT )
+  if(dpu_ret == UNSAT )
   {
     log_message(LOG_LEVEL_INFO,"UNSAT");
-    relaunch_flag = NO_RELAUNCH;
+    relaunch = NO_RELAUNCH;
   }
   else
   {
@@ -89,7 +84,7 @@ int main()
   }
   mem_used = dpu_solver.mem_used;
   mem_fixed = dpu_solver.mem_fixed;
-  Mram_populate();
   dpu_solver.mem_fixed = dpu_solver.mem_used;
-  first++;  
-*/
+  first++;
+}
+    

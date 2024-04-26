@@ -102,7 +102,7 @@ void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
   struct dpu_set_t dpu;
   uint32_t nb_dpus = 1024; 
   int first = 0;
-  int dpu_flag = UNSAT;
+  int dpu_ret= UNSAT;
   int unsat_cpt = 0;
   int nb_boot = 0;
   int sat = 0;
@@ -112,7 +112,7 @@ void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
   HOST_TOOLS_send_id(set);
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
   clock_t start,end;
   double duration;
   start = clock();
@@ -125,14 +125,14 @@ void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set) {
     DPU_FOREACH(set,dpu,nb_boot)
     {
       //DPU_ASSERT(dpu_log_read(dpu,stdout));
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_flag",0,&dpu_flag,sizeof(int)));
-      if(dpu_flag == SAT)
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
+      if(dpu_ret== SAT)
       {
-        DPU_ASSERT(dpu_copy_from(dpu,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int)));
+        DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int)));
         sat = 1;
         break;
       }
-      if(dpu_flag == UNSAT)
+      if(dpu_ret== UNSAT)
       {
         unsat_cpt++;
         if(nb_boot > 0 )
@@ -215,7 +215,49 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   }
   log_message(LOG_LEVEL_INFO,"parsing finished");
   struct dpu_set_t dpu;
-  int dpu_flag = UNSAT;
+  int dpu_ret= UNSAT;
+  int offsets[11];int vars[11];
+  populate_offsets(offsets,dpu_solver);
+  populate_vars(vars,dpu_solver);
+  log_message(LOG_LEVEL_INFO,"Broadcasting");
+  HOST_TOOLS_send_id(set);
+
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
+  log_message(LOG_LEVEL_INFO,"Launching");
+  DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
+  DPU_FOREACH(set,dpu)
+  {
+    //dpu_log_read(dpu,stdout);
+    DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
+    if(dpu_ret== SAT)
+    {
+      log_message(LOG_LEVEL_INFO,"DPU SAT");
+      dpu_log_read(dpu,stdout);
+      break;
+    }
+    if(dpu_ret== STOPPED)
+    {
+      log_message(LOG_LEVEL_INFO,"STOPPED");
+    }
+  }
+}
+void HOST_TOOLS_incremental_launch(char* filename, struct dpu_set_t set)
+{
+  struct solver dpu_solver;
+  int ret = parse(&dpu_solver,filename);
+  if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
+    exit(0);
+  }
+  log_message(LOG_LEVEL_INFO,"parsing finished");
+  struct dpu_set_t dpu;
+  int dpu_ret = UNSAT;
+  int unsat_cpt = 0;
+  int sat = 0;
+  int boot_nb = 0;
   int offsets[11];int vars[11];
   populate_offsets(offsets,dpu_solver);
   populate_vars(vars,dpu_solver);
@@ -223,22 +265,34 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   HOST_TOOLS_send_id(set);
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
-  log_message(LOG_LEVEL_INFO,"Launching");
-  DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
-  DPU_FOREACH(set,dpu)
+  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
+  while(unsat_cpt < NB_DPU && !sat)
   {
-    dpu_log_read(dpu,stdout);
-    DPU_ASSERT(dpu_copy_from(dpu,"dpu_flag",0,&dpu_flag,sizeof(int)));
-    if(dpu_flag == SAT)
+    unsat_cpt = 0;
+    sat = 0;
+    log_message(LOG_LEVEL_INFO,"Launching");
+    DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
+    
+    DPU_FOREACH(set,dpu,boot_nb)
     {
-      log_message(LOG_LEVEL_INFO,"DPU SAT");
-      dpu_log_read(dpu,stdout);
-      break;
-    }
-    if(dpu_flag == STOPPED)
-    {
-      log_message(LOG_LEVEL_INFO,"STOPPED");
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
+      if(dpu_ret == SAT)
+      {
+        log_message(LOG_LEVEL_INFO,"DPU SAT");
+        dpu_log_read(dpu,stdout);
+        sat = 1;
+        break;
+      }
+      if(dpu_ret== STOPPED)
+      {
+        //log_message(LOG_LEVEL_INFO,"STOPPED");
+      }
+      if(dpu_ret == UNSAT)
+      {
+        unsat_cpt++;
+      }
     }
   }
+  
+
 }
