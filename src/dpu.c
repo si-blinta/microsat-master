@@ -4,84 +4,17 @@
 #include <alloc.h>
 #include "log.h"
 #include <barrier.h>       
-#include <defs.h>                                                                                 
+#include <defs.h>                                                                            
 __mram_noinit int dpu_buffer[MEM_MAX];
-int first;
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
-__dma_aligned int DB[MEM_MAX];    // Very important : transfers from Wram <> mram need to be dma aligned else it would produce unexpected results
 __host int dpu_flag;
-__host int mem_used;
-__host int mem_fixed;
 __host uint32_t dpu_id;
-__host int learnt_clauses[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
-__host int learnt_clause_sizes[MAX_LEARNT_CLAUSES];
-__host int learnt_clause_count;
-int relaunch_flag;
 
-void DB_populate(){
-  int n64 = (MEM_MAX*sizeof(int))/64;
-  int mem_needed = 0;
-  if(MEM_MAX % 64 !=0)
-  {
-    n64+=1;
-  }
-  mem_needed = 64*n64;
-  //printf(D"mem fixed = %d BYTES| we need %d BYTES| %d * 64 BYTES\n",mem_fixed*sizeof(int),mem_needed,n64);
-  if(mem_needed > 2048)
-  {
-    int n2048 = mem_needed/2048;
-    for(int i = 0; i < (mem_needed/2048);i++)
-    {
-      //printf(D"index %d | mram read %d\n",(i*2048/sizeof(int)),2048);  
-      mram_read(dpu_buffer+(i*2048/sizeof(int)),DB+(i*2048/sizeof(int)),2048);
-    }
-    if(mem_needed % 2048 !=0)
-    {
-      //printf(D"index %d | mram read %d\n",n2048*2048/sizeof(int),mem_needed%2048);
-      mram_read(dpu_buffer+n2048*2048/sizeof(int),DB+n2048*2048/sizeof(int),mem_needed%2048);
-    }
-  }
-  else 
-  {
-    //printf(D"mram read %d\n",mem_needed);
-    mram_read(dpu_buffer,DB,mem_needed);
-  }
-}
-void Mram_populate(){
-  int n64 = (MEM_MAX*sizeof(int))/64;
-  int mem_needed = 0;
-  if(MEM_MAX % 64 !=0)
-  {
-    n64+=1;
-  }
-  mem_needed = 64*n64;
-  //printf(D"mem fixed = %d BYTES| we need %d BYTES| %d * 64 BYTES\n",mem_fixed*sizeof(int),mem_needed,n64);
-  if(mem_needed > 2048)
-  {
-    int n2048 = mem_needed/2048;
-    for(int i = 0; i < (mem_needed/2048);i++)
-    {
-      //printf(D"index %d | mram read %d\n",(i*2048/sizeof(int)),2048);  
-      mram_write(DB+(i*2048/sizeof(int)),dpu_buffer+(i*2048/sizeof(int)),2048);
-    }
-    if(mem_needed % 2048 !=0)
-    {
-      //printf(D"index %d | mram read %d\n",n2048*2048/sizeof(int),mem_needed%2048);
-      mram_write(DB+n2048*2048/sizeof(int),dpu_buffer+n2048*2048/sizeof(int),mem_needed%2048);
-    }
-  }
-  else 
-  {
-    //printf(D"mram read %d\n",mem_needed);
-    mram_write(DB,dpu_buffer,mem_needed);
-  }
-}
 void populate_solver_context(struct solver *dpu_solver)
 { 
-  log_message(LOG_LEVEL_INFO,"populating solver context");
-  DB_populate();                       
-  dpu_solver->DB = DB;
+  log_message(LOG_LEVEL_INFO,"populating solver context");                      
+  dpu_solver->DB = dpu_buffer;
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
@@ -112,7 +45,26 @@ void populate_solver_context(struct solver *dpu_solver)
 }
 int main()
 {
-  printf("relaunch flag %d\n",relaunch_flag);
+  struct solver dpu_solver;
+  populate_solver_context(&dpu_solver);
+  dpu_flag = solve(&dpu_solver,1000);
+  if(dpu_flag == SAT )
+  {
+    log_message(LOG_LEVEL_INFO,"SAT");
+    show_result(dpu_solver);
+  }
+  if(dpu_flag == UNSAT )
+  {
+    log_message(LOG_LEVEL_INFO,"UNSAT");
+  }
+  else
+  {
+    log_message(LOG_LEVEL_INFO,"STOPPED");
+  }
+  return 0;
+}
+/**
+ *  printf("relaunch flag %d\n",relaunch_flag);
   if(relaunch_flag == NO_RELAUNCH)
   {
     return 0;
@@ -127,10 +79,10 @@ int main()
     // Update database with new learned clauses.
     for(int i = 0 ; i < learnt_clause_count;i++)
     {
-      addClause(&dpu_solver,learnt_clauses[i],learnt_clause_sizes[i],0);
+      //addClause(&dpu_solver,learnt_clauses[i],learnt_clause_sizes[i],0);
     }
   }
-  dpu_flag = solve(&dpu_solver,100);
+  dpu_flag = solve(&dpu_solver,10000);
   if(dpu_flag == SAT )
   {
     log_message(LOG_LEVEL_INFO,"SAT");
@@ -149,5 +101,4 @@ int main()
   Mram_populate();
   dpu_solver.mem_fixed = dpu_solver.mem_used;
   first++;  
-  return 0;
-}
+*/

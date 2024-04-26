@@ -16,6 +16,10 @@
         "system_error": "c",
         "array": "c",
         "barrier.h": "c",
-        "atomic": "c"
+        "atomic": "c",
+        "type_traits": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c"
     }
 }

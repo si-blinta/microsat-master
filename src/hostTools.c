@@ -204,3 +204,30 @@ void HOST_TOOLS_parallel_transfer(char* shared_buffer,size_t buffer_size,uint32_
 {
   dpu_xfer_t xfer;
 }
+void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
+{
+  struct solver dpu_solver;
+  int ret = parse(&dpu_solver,filename);
+  if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
+    exit(0);
+  }
+  log_message(LOG_LEVEL_INFO,"parsing finished");
+  struct dpu_set_t dpu;
+  int offsets[11];int vars[11];
+  populate_offsets(offsets,dpu_solver);
+  populate_vars(vars,dpu_solver);
+  log_message(LOG_LEVEL_INFO,"Broadcasting");
+  HOST_TOOLS_send_id(set);
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_buffer",0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
+  log_message(LOG_LEVEL_INFO,"Launching");
+  DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
+  DPU_FOREACH(set,dpu)
+  {
+    dpu_log_read(dpu,stdout);
+  }
+
+}

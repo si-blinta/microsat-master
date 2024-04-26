@@ -40,4 +40,5 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
  * @brief Launches portfolio solvers
 */
 void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set);
+void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
 #endif // HOST_TOOLS_H
