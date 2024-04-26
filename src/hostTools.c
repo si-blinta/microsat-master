@@ -215,6 +215,7 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   }
   log_message(LOG_LEVEL_INFO,"parsing finished");
   struct dpu_set_t dpu;
+  int dpu_flag = UNSAT;
   int offsets[11];int vars[11];
   populate_offsets(offsets,dpu_solver);
   populate_vars(vars,dpu_solver);
@@ -227,7 +228,16 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
   DPU_FOREACH(set,dpu)
   {
-    dpu_log_read(dpu,stdout);
+    DPU_ASSERT(dpu_copy_from(dpu,"dpu_flag",0,&dpu_flag,sizeof(int)));
+    if(dpu_flag == SAT)
+    {
+      log_message(LOG_LEVEL_INFO,"DPU SAT");
+      dpu_log_read(dpu,stdout);
+      break;
+    }
+    if(dpu_flag == STOPPED)
+    {
+      log_message(LOG_LEVEL_INFO,"STOPPED");
+    }
   }
-
 }

@@ -47,19 +47,10 @@ int main()
 {
   struct solver dpu_solver;
   populate_solver_context(&dpu_solver);
-  dpu_flag = solve(&dpu_solver,1000);
+  dpu_flag = solve(&dpu_solver,10000);
   if(dpu_flag == SAT )
   {
-    log_message(LOG_LEVEL_INFO,"SAT");
     show_result(dpu_solver);
-  }
-  if(dpu_flag == UNSAT )
-  {
-    log_message(LOG_LEVEL_INFO,"UNSAT");
-  }
-  else
-  {
-    log_message(LOG_LEVEL_INFO,"STOPPED");
   }
   return 0;
 }
