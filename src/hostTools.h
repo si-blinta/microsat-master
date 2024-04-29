@@ -4,6 +4,14 @@
 #include <dpu.h>
 #include <assert.h>
 #define roundup(n, m) ((n / m) * m + m)
+#define rounddown(n, m) ((n / m) * m)
+
+enum dpu_state
+{
+    IDLE,
+    BUSY
+};
+
 /**
  * @brief This function simply parse arguments from commandline and update variables.
  * @param argc Number of arguments.

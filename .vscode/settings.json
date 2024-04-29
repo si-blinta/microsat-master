@@ -21,6 +21,8 @@
         "string_view": "c",
         "initializer_list": "c",
         "utility": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "assert.h": "c",
+        "cmath": "c"
     }
 }

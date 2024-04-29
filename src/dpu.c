@@ -4,15 +4,11 @@
 #include <alloc.h>
 #include "log.h"
 #include <barrier.h>       
-#include <defs.h>                                                                            
-
+#include <defs.h>   
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
 __host int dpu_ret;
 __host uint32_t dpu_id;
-__host int mem_used;
-__host int mem_fixed;
-
 int first;
 int relaunch;
 void populate_solver_context(struct solver *dpu_solver)
@@ -59,14 +55,6 @@ int main()
   {
     populate_solver_context(&dpu_solver);
   }
-  /*else
-  {
-    // Update database with new learned clauses.
-    for(int i = 0 ; i < learnt_clause_count;i++)
-    {
-      //addClause(&dpu_solver,learnt_clauses[i],learnt_clause_sizes[i],0);
-    }
-  }*/
   dpu_ret = solve(&dpu_solver,100);
   if(dpu_ret == SAT )
   {
@@ -82,9 +70,25 @@ int main()
   {
     log_message(LOG_LEVEL_INFO,"STOPPED");
   }
-  mem_used = dpu_solver.mem_used;
-  mem_fixed = dpu_solver.mem_fixed;
-  dpu_solver.mem_fixed = dpu_solver.mem_used;
+
   first++;
 }
-    
+/*__host int dpu_last_mem_used;
+__host int dpu_mem_used;
+__host int dpu_lc[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
+__host int dpu_lc_sizes[MAX_LEARNT_CLAUSES];
+__host int dpu_lc_count;
+__mram_noinit int tmp[MAX_CLAUSE_SIZE];*/
+/**
+ * #if SHARING
+  else
+  {
+    // Update database with new learned clauses.
+    for(int i = 0 ; i < dpu_lc_count;i++)
+    {
+      mram_write(dpu_lc[i],tmp,roundup(dpu_lc_sizes[i],8)*sizeof(int));
+      addClause(&dpu_solver,tmp,dpu_lc_sizes[i],0);
+    } 
+  }
+#endif
+*/

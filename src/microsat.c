@@ -2,6 +2,13 @@
 #include "log.h"
 
 #ifndef DPU
+void assign_decision(struct solver *S, int lit)
+{
+  S->falses[-lit] = IMPLIED;          // Mark lit as true and IMPLIED if forced
+  *(S->assigned++) = -lit;            // Push it on the assignment stack
+  S->reason[abs(lit)] = END;          // Set the reason as undefined ( different from 0 ).
+  S->model[abs(lit)] = (lit > 0);
+}
 void unassign(struct solver *S, int lit) { S->falses[lit] = 0; } // Unassign the literal
 
 void restart(struct solver *S)
@@ -187,6 +194,7 @@ int propagate(struct solver *S)
   while (S->processed < S->assigned)
   {                              // While unprocessed false literals
     int lit = *(S->processed++); // Get first unprocessed literal
+    printf("unprocessed %d\n",lit);
     int *watch = &S->first[lit]; // Obtain the first watch pointer
     while (*watch != END)
     {                                     // While there are watched clauses (watched by lit)
