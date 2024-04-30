@@ -36,7 +36,7 @@ int main(int argc, char **argv)
     break;
   case SAT:
     log_message(LOG_LEVEL_INFO,"SAT");
-    show(master);
+    picosat_proof(master);
     show_result(master);
     show_solver_stats(master);
   default:
