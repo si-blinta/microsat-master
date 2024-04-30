@@ -6,7 +6,7 @@ NB_TASKLETS       ?= 1
 all: clean dpu host
 
 local: src/host.c src/microsat.c src/log.c 
-	@gcc src/host.c src/microsat.c src/log.c  $(HOST-CFLAGS) -o bin/local
+	@gcc src/host.c src/microsat.c src/log.c  $(HOST-CFLAGS) -o bin/local -lm
 
 clean:
 	@rm -f bin/host bin/dpu bin/local

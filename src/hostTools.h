@@ -6,12 +6,18 @@
 #define roundup(n, m) ((n / m) * m + m)
 #define rounddown(n, m) ((n / m) * m)
 
+typedef struct
+{
+    struct dpu_set_t dpu;
+    int state
+}dpu_cntx;
+
+
 enum dpu_state
 {
     IDLE,
     BUSY
 };
-
 /**
  * @brief This function simply parse arguments from commandline and update variables.
  * @param argc Number of arguments.
@@ -51,5 +57,5 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
 */
 void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set);
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
-void HOST_TOOLS_incremental_launch(char* filename, struct dpu_set_t set);
+void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set);
 #endif // HOST_TOOLS_H

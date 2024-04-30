@@ -23,6 +23,8 @@
         "utility": "c",
         "time.h": "c",
         "assert.h": "c",
-        "cmath": "c"
+        "cmath": "c",
+        "cstdlib": "c",
+        "algorithm": "c"
     }
 }

@@ -8,6 +8,18 @@
 #endif
 #define MAX_CLAUSE_SIZE 10
 #define MAX_LEARNT_CLAUSES 5
+#define MAX_RANDOM_THRESHHOLD 100
+
+#define GEOMETRIC_FACTOR 1.2
+
+#define ADAPTIVE_FACTOR 1.5
+#define PROGRESS_THRESHOLD 0.95
+#define MIN_THRESHOLD 2000
+
+#define FIXED_THRESHOLD 1000
+#define LUBY_START 1
+#define LUBY_FACTOR 2
+#define LUBY_RESET 1
 enum
 {
   END = -9,
@@ -30,6 +42,14 @@ enum
   FALSES,
   FIRST,
   CLAUSES
+};
+enum restart_policy {
+  DEFAULT,
+  LUBY,
+  GEOMETRIC,
+  RANDOM,
+  ADAPTIVE,
+  FIXED
 };
 #ifndef DPU
 struct solver
@@ -99,5 +119,12 @@ void assign_decision (struct solver* S, int lit);
 void unassign_last_decision(struct solver *S);
 
 #endif // DPU 
-
+int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it);
+int get_unassigned(struct solver S);
+int solve_random(struct solver* S,int stop_it);
+int solve_geometric(struct solver* S,int stop_it);
+int solve_luby(struct solver* S,int stop_it);
+int solve_adaptive(struct solver* S, int stop_it);
+int solve_fixed(struct solver* S, int stop_it);
+void picosat_proof(struct solver S);
 #endif

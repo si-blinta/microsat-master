@@ -12,8 +12,7 @@ __host uint32_t dpu_id;
 int first;
 int relaunch;
 void populate_solver_context(struct solver *dpu_solver)
-{ 
-  log_message(LOG_LEVEL_INFO,"populating solver context");                      
+{                     
   dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
@@ -37,41 +36,44 @@ void populate_solver_context(struct solver *dpu_solver)
   dpu_solver->assigned = dpu_solver->DB + dpu_DB_offsets[8];
   dpu_solver->falses = dpu_solver->DB + dpu_DB_offsets[9];
   dpu_solver->first = dpu_solver->DB + dpu_DB_offsets[10];
-  for (int j = 0; j < 10; j++) 
-  {
-    assign_decision(dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-  }
 }
-int main()
+void divide_and_conquer_kernel()
 {
+  struct solver dpu_solver;
+  
   //printf("relaunch flag %d\n",relaunch);
   if(relaunch == NO_RELAUNCH)
   {
     return 0;
   }
-  struct solver dpu_solver;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
+      for (int j = 0; j < 10; j++) 
+  {
+    assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
-  dpu_ret = solve(&dpu_solver,100);
+  }
+  dpu_ret = solve(&dpu_solver,10);
   if(dpu_ret == SAT )
   {
-    log_message(LOG_LEVEL_INFO,"SAT");
     show_result(dpu_solver);
   }
   if(dpu_ret == UNSAT )
   {
-    log_message(LOG_LEVEL_INFO,"UNSAT");
     relaunch = NO_RELAUNCH;
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
-  else
-  {
-    log_message(LOG_LEVEL_INFO,"STOPPED");
-  }
-
   first++;
+}
+void pure_portfolio_kernel()
+{
+  
+}
+int main()
+{
+  divide_and_conquer_kernel();
 }
 /*__host int dpu_last_mem_used;
 __host int dpu_mem_used;
@@ -91,4 +93,34 @@ __mram_noinit int tmp[MAX_CLAUSE_SIZE];*/
     } 
   }
 #endif
+*/
+/**
+ * DIVIDE CONQUER 
+ *  struct solver dpu_solver;
+  
+  //printf("relaunch flag %d\n",relaunch);
+  if(relaunch == NO_RELAUNCH)
+  {
+    return 0;
+  }
+  if(first == 0)
+  {
+    populate_solver_context(&dpu_solver);
+      for (int j = 0; j < 10; j++) 
+  {
+    assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+  }
+  }
+  dpu_ret = solve(&dpu_solver,10);
+  if(dpu_ret == SAT )
+  {
+    show_result(dpu_solver);
+  }
+  if(dpu_ret == UNSAT )
+  {
+    relaunch = NO_RELAUNCH;
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+  }
+  first++;
 */
