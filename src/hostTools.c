@@ -2,6 +2,16 @@
 #include "microsat.h"
 #include "log.h"
 #include <time.h>
+#include "utils.h"
+#define MAX_RANDOM_THRESHHOLD 100
+
+#define GEOMETRIC_FACTOR 1.2
+
+#define ADAPTIVE_FACTOR 1.5
+#define PROGRESS_THRESHOLD 0.95
+#define MIN_THRESHOLD 2000
+
+#define FIXED_THRESHOLD 1000
 void HOST_TOOLS_allocate_dpus(struct dpu_set_t *set, uint32_t *nb_dpus)
 {
   DPU_ASSERT(dpu_alloc(*nb_dpus, NULL, set));
@@ -78,6 +88,7 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
   log_message(LOG_LEVEL_INFO,"Launching");
   DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
+  log_message(LOG_LEVEL_DEBUG,"AFTER LAUNCHING");
   DPU_FOREACH(set,dpu)
   {
     //dpu_log_read(dpu,stdout);
@@ -173,9 +184,9 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
 } 
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 {
-  int id = 0;
   struct dpu_set_t dpu;
   struct solver dpu_solver;
+  portfolio_args args;
   int ret = parse(&dpu_solver,filename);
   if(ret == UNSAT)
   {
@@ -183,36 +194,41 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
     exit(0);
   }
   log_message(LOG_LEVEL_INFO,"parsing finished");
-  int dpu_ret = UNSAT;
-  int unsat_cpt = 0;
-  int sat = 0;
+  int dpu_ret;
+  int finish = 0;
   int offsets[11];int vars[11];
   populate_offsets(offsets,dpu_solver);
   populate_vars(vars,dpu_solver);
   log_message(LOG_LEVEL_INFO,"Broadcasting");
-  HOST_TOOLS_send_id(set);
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_FOREACH(set,dpu)
+  {
+    args.factor          = drand48() + 1;
+    args.restart_policy  = rand() % 4;
+    args.min_thresh_hold = rand() % 1000 + rand()%1000;
+    //log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);
+    DPU_ASSERT(dpu_copy_to(dpu,"dpu_args",0,&args,sizeof(portfolio_args)));
+  }
+
   clock_t start,end;
   double duration;
   start = clock();
-  while(unsat_cpt < NB_DPU && !sat)
+  while(!finish)
   {
-    id = 0;
-    unsat_cpt = 0;
-    sat = 0;
+    int iterations = rand()%100 + 10;
+    DPU_ASSERT(dpu_broadcast_to(set,"dpu_iterations",0,&iterations,sizeof(int),DPU_XFER_DEFAULT));
     log_message(LOG_LEVEL_INFO,"Launching");
     DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
-    
-    DPU_FOREACH(set,dpu,id)
+    DPU_FOREACH(set,dpu)
     { 
       DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
       if(dpu_ret == SAT)
       {
         log_message(LOG_LEVEL_INFO,"DPU SAT");
         dpu_log_read(dpu,stdout);
-        sat = 1;
+        finish = 1;
         break;
       }
       if(dpu_ret== STOPPED)
@@ -222,17 +238,27 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
       }
       if(dpu_ret == UNSAT)
       {
-        unsat_cpt++;
+        log_message(LOG_LEVEL_INFO,"DPU UNSAT");
+        finish = 1;
+        break;
       }
     }
+  }
   end = clock();
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
-  printf("DPU %lf ms\n",duration);
-  if(!sat)
-    log_message(LOG_LEVEL_INFO,"DPU UNSAT");
-}
-
-
+  log_message(LOG_LEVEL_INFO,"DPU %lf ms\n",duration);
+  start = clock();
+  dpu_ret = solve(&dpu_solver,INT32_MAX);
+  end = clock();
+  duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
+  log_message(LOG_LEVEL_INFO,"HOST %lf ms\n",duration);
+  if(dpu_ret == SAT)
+  {
+     log_message(LOG_LEVEL_INFO,"HOST SAT");
+     show_result(dpu_solver);
+  }
+  else 
+    log_message(LOG_LEVEL_INFO,"HOST UNSAT");
 }
 /**
  * #if SHARING

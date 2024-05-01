@@ -45,9 +45,9 @@ enum
 };
 enum restart_policy {
   DEFAULT,
-  LUBY,
+  //LUBY,
   GEOMETRIC,
-  RANDOM,
+  //RANDOM,
   ADAPTIVE,
   FIXED
 };
@@ -98,6 +98,14 @@ void show_solver_stats(struct solver S);
 void show_result(struct solver S);
 void assign_decision (struct solver* S, int lit);
 void unassign_last_decision(struct solver *S);
+int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it,int factor,int thresh_hold);
+int get_unassigned(struct solver S);
+int solve_random(struct solver* S,int stop_it);
+int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_thresh_hold);
+int solve_luby(struct solver* S,int stop_it);
+int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thresh_hold);
+int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold);
+void picosat_proof(struct solver S);
 #else
 void unassign(struct solver *S, int lit);
 void restart(struct solver *S);
@@ -117,14 +125,11 @@ void show_solver_stats(struct solver S);
 void show_result(struct solver S);
 void assign_decision (struct solver* S, int lit);
 void unassign_last_decision(struct solver *S);
-
-#endif // DPU 
-int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it);
-int get_unassigned(struct solver S);
-int solve_random(struct solver* S,int stop_it);
-int solve_geometric(struct solver* S,int stop_it);
+int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_thresh_hold);
 int solve_luby(struct solver* S,int stop_it);
-int solve_adaptive(struct solver* S, int stop_it);
-int solve_fixed(struct solver* S, int stop_it);
+int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thresh_hold);
+int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold);
 void picosat_proof(struct solver S);
+int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it,int factor,int thresh_hold);
+#endif // DPU 
 #endif

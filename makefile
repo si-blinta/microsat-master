@@ -12,11 +12,11 @@ clean:
 	@rm -f bin/host bin/dpu bin/local
 	@echo "Cleaned"
 
-dpu: src/dpu.c src/microsat.c src/log.c 
-	@$(DPU-CC) -DNR_TASKLETS=$(NB_TASKLETS) -DDPU -o bin/dpu src/dpu.c src/microsat.c src/log.c
+dpu: src/dpu.c src/microsat.c src/utils.c
+	@$(DPU-CC) -DNR_TASKLETS=$(NB_TASKLETS) -DDPU -o bin/dpu src/dpu.c src/microsat.c src/utils.c
 	@echo "Compiled DPU with $(NB_TASKLETS) Tasklets"
 
-host: src/host.c src/microsat.c src/hostTools.c src/log.c
-	@$(HOST-CC) $(HOST-CFLAGS) src/host.c src/microsat.c src/hostTools.c src/log.c  -o bin/host $(HOST-LIBS)
+host: src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c
+	@$(HOST-CC) $(HOST-CFLAGS) src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c -o bin/host $(HOST-LIBS)
 	@echo "Compiled HOST"
 	

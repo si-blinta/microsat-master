@@ -9,7 +9,7 @@
 typedef struct
 {
     struct dpu_set_t dpu;
-    int state
+    int state;
 }dpu_cntx;
 
 
@@ -55,7 +55,7 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
 /**
  * @brief Launches portfolio solvers
 */
-void HOST_TOOLS_portfolio_launch(char* filename,struct dpu_set_t set);
+void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set);
 #endif // HOST_TOOLS_H

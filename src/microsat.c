@@ -1,7 +1,132 @@
 #include "microsat.h"
-#include "log.h"
-#include "math.h"
 #ifndef DPU
+#include "log.h"
+int solve(struct solver *S,int stop_it)
+{ // Determine satisfiability
+  int restarts = 0;
+  int decision = S->head;
+  S->res = 0; // Initialize the solver
+  for (int i = 0; i < stop_it ; i++)
+  {                              // Main solve loop
+    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
+    //printf("propagating\n");
+    if (propagate(S) == UNSAT)
+    {
+      printf("restarts %d\n",restarts);
+      return UNSAT; // Propagation returns UNSAT for a root level conflict
+    
+    }
+    if (S->nLemmas > old_nLemmas)
+    { // If the last decision caused a conflict
+      // printf("new learned clause\n");
+      decision = S->head; // Reset the decision heuristic to head
+      if (S->fast > (S->slow / 100) * 125) 
+      { // If fast average is substantially larger than slow average
+        printf("restarted after %d conflicts\n",S->res);
+        S->res = 0;
+        S->fast = (S->slow / 100) * 125; // 125
+        restart(S); // Restart and update the averages
+        restarts++;
+        if (S->nLemmas > S->maxLemmas)
+          reduceDB(S, 6); 
+      }
+    } // Reduce the DB when it contains too many lemmas
+
+    while (S->falses[decision] || S->falses[-decision])
+    { // As long as the temporay decision is assigned
+      decision = S->prev[decision];
+      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
+    }
+    if (decision == 0)
+    {
+      printf("restarts %d\n",restarts);
+      return SAT;                                         // If the end of the list is reached, then a solution is found
+    }
+    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
+    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
+    *(S->assigned++) = -decision;                         // And push it on the assigned stack
+    decision = abs(decision);
+    S->reason[decision] = 0;
+  }
+  printf("restarts %d\n",restarts);
+  return STOPPED;
+} // Decisions have no reason clauses
+void show_solver_info_debug(struct solver S)
+{
+  log_message(LOG_LEVEL_INFO,"Solver data base");
+  int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1,__INT_MAX__};
+  int current = partition[0];
+  int cumul = 0;
+  int j = 0;
+  for (int i = 0; i < S.mem_used; i++)
+  {
+    if (cumul == current || i == 0)
+    {
+      switch (j)
+      {
+      case MODEL:
+        printf(ANSI_COLOR_YELLOW "\n\nmodel:");
+        break;
+      case NEXT:
+        printf(ANSI_COLOR_YELLOW "\n\nnext:");
+        break;
+      case PREV:
+        printf(ANSI_COLOR_YELLOW "\n\nprev:");
+        break;
+      case BUFFER:
+        printf(ANSI_COLOR_YELLOW "\n\nbuffer:");
+        break;
+      case REASON:
+        printf(ANSI_COLOR_YELLOW "\n\nreason:");
+        break;
+      case FALSESTACK:
+        printf(ANSI_COLOR_YELLOW "\n\nfalseStack:");
+        break;
+      case FALSES:
+        printf(ANSI_COLOR_YELLOW "\n\nfalses:");
+        break;
+      case FIRST:
+        printf(ANSI_COLOR_YELLOW "\n\nfirst:");
+        break;
+      case CLAUSES:
+        printf(ANSI_COLOR_YELLOW "\n\nclauses:");
+        break;
+      }
+      cumul = 0;
+      current = partition[j++];
+    }
+    printf(ANSI_COLOR_RESET "[%d,%d] ", i, S.DB[i]);
+    cumul++;
+  }
+  printf("\n");
+}
+void show_solver_stats(struct solver S)
+{
+  log_message(LOG_LEVEL_INFO,"Solver stats");
+  printf("nVars     = %d\n", S.nVars);
+  printf("nClauses  = %d\n", S.nClauses);
+  printf("mem_used  = %d\n", S.mem_used);
+  printf("mem fixed = %d\n", S.mem_fixed);
+  printf("maxLemmas = %d\n", S.maxLemmas);
+  printf("nLemmas   = %d\n", S.nLemmas);
+  printf("nConflicts= %d\n", S.nConflicts);
+  printf("fast      = %d\n", S.fast);
+  printf("slow      = %d\n", S.slow);
+  printf("head      = %d\n", S.head);
+  printf("res       = %d\n", S.res);
+  printf("prev      = %d\n", S.prev[0]);
+  printf("next      = %d\n", S.next[0]);
+  printf("first     = %d\n", S.first[0]);
+  printf("falses    = %d\n", S.falses[0]);
+  printf("falseStack= %d\n", S.falseStack[0]);
+  printf("assigned  = %d\n", S.assigned[0]);
+  printf("processed = %d\n", S.processed[0]);
+  printf("reason    = %d\n", S.reason[0]);
+  printf("forced    = %d\n", S.forced[0]);
+  printf("buffer    = %d\n", S.buffer[0]);
+  printf("model     = %d\n", S.model[0]);
+}
+
 void assign_decision(struct solver *S, int lit)
 {
   S->falses[-lit] = IMPLIED;          // Mark lit as true and IMPLIED if forced
@@ -242,30 +367,62 @@ int propagate(struct solver *S)
   return SAT;
 } // Finally, no conflict was found
 
-int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it)
-{ // Determine satisfiability
-  switch (restart_p)
-  {
-  case DEFAULT:
-    return solve(S,stop_it);
-    break;
-  case RANDOM:
-    return solve_random(S,stop_it);
-    break;
-  case LUBY:
-    return solve_luby(S,stop_it);
-    break;
-  case GEOMETRIC:
-    return solve_geometric(S,stop_it);
-    break;
-  case FIXED:
-    return solve_fixed(S,stop_it);
-  case ADAPTIVE:
-    return solve_adaptive(S,stop_it);
-  default:
-    break;
+int solve_random(struct solver* S,int stop_it)
+{
+  // Determine satisfiability
+  int restarts = 0;
+  int restart_threshold = MIN_THRESHOLD;
+  int conflicts = 0;
+  int decision = S->head;
+  S->res = 0; // Initialize the solver
+  for (int i = 0; i < stop_it ; i++)
+  {                              // Main solve loop
+    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
+    //printf("propagating\n");
+    if (propagate(S) == UNSAT)
+    {
+      printf("restarts %d\n",restarts);
+      return UNSAT; // Propagation returns UNSAT for a root level conflict
+    
+    }
+    if (S->nLemmas > old_nLemmas)
+    { // If the last decision caused a conflict
+      // printf("new learned clause\n");
+      decision = S->head; // Reset the decision heuristic to head
+      conflicts++;
+      if (conflicts >= restart_threshold) 
+      { 
+        printf("restarted after %d conflicts\n",conflicts);
+        S->res = 0;
+        conflicts = 0;                                      //Reset conflicts
+        restart_threshold = rand() % MAX_RANDOM_THRESHHOLD;
+        restart(S); // Restart and update the averages
+        restarts++;
+        if (S->nLemmas > S->maxLemmas)
+          reduceDB(S, 6); 
+      }
+    } // Reduce the DB when it contains too many lemmas
+
+    while (S->falses[decision] || S->falses[-decision])
+    { // As long as the temporay decision is assigned
+      decision = S->prev[decision];
+      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
+    }
+    if (decision == 0)
+    {
+      printf("restarts %d\n",restarts);
+      return SAT;                                         // If the end of the list is reached, then a solution is found
+    }
+    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
+    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
+    *(S->assigned++) = -decision;                         // And push it on the assigned stack
+    decision = abs(decision);
+    S->reason[decision] = 0;
   }
-} // Decisions have no reason clauses
+  printf("restarts %d\n",restarts);
+  return STOPPED;
+}
+
 void initCDCL(struct solver *S, int n, int m)
 {
   if (n < 1)
@@ -560,7 +717,56 @@ build:;
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
   return addClause(S, S->buffer, size, 0);
 } // Add new conflict clause to redundant DB
+int solve(struct solver *S,int stop_it)
+{ // Determine satisfiability
+  int restarts = 0;
+  int decision = S->head;
+  S->res = 0; // Initialize the solver
+  for (int i = 0; i < stop_it ; i++)
+  {                              // Main solve loop
+    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
+    //printf("propagating\n");
+    if (propagate(S) == UNSAT)
+    {
+      printf("restarts %d\n",restarts);
+      return UNSAT; // Propagation returns UNSAT for a root level conflict
+    
+    }
+    if (S->nLemmas > old_nLemmas)
+    { // If the last decision caused a conflict
+      // printf("new learned clause\n");
+      decision = S->head; // Reset the decision heuristic to head
+      if (S->fast > (S->slow / 100) * 125) 
+      { // If fast average is substantially larger than slow average
+        printf("restarted after %d conflicts\n",S->res);
+        S->res = 0;
+        S->fast = (S->slow / 100) * 125; // 125
+        restart(S); // Restart and update the averages
+        restarts++;
+        if (S->nLemmas > S->maxLemmas)
+          reduceDB(S, 6); 
+      }
+    } // Reduce the DB when it contains too many lemmas
 
+    while (S->falses[decision] || S->falses[-decision])
+    { // As long as the temporay decision is assigned
+      decision = S->prev[decision];
+      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
+    }
+    if (decision == 0)
+    {
+      printf("restarts %d\n",restarts);
+      return SAT;                                         // If the end of the list is reached, then a solution is found
+    }
+    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
+    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
+    *(S->assigned++) = -decision;                         // And push it on the assigned stack
+    decision = abs(decision);
+    S->reason[decision] = 0;
+  }
+  printf("restarts %d\n",restarts);
+  return STOPPED;
+} // Decisions have no reason clauses
 int propagate(struct solver *S)
 {                                             // Performs unit propagation
   int forced = S->reason[abs(*S->processed)]; // Initialize forced flag
@@ -613,279 +819,51 @@ int propagate(struct solver *S)
     S->forced = S->processed; // Set S->forced if applicable
   return SAT;
 } // Finally, no conflict was found
-
-int solve(struct solver *S,int stop_it)
-{ // Determine satisfiability
-  int decision = S->head;
-  S->res = 0; // Initialize the solver
-  for (int i = 0; i < stop_it ; i++)
-  {                              // Main solve loop
-    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    //printf("propagating\n");
-    if (propagate(S) == UNSAT)
-      return UNSAT; // Propagation returns UNSAT for a root level conflict
-
-    if (S->nLemmas > old_nLemmas)
-    { // If the last decision caused a conflict
-      // printf("new learned clause\n");
-      decision = S->head; // Reset the decision heuristic to head
-      if (S->fast > (S->slow / 100) * 125)
-      { // If fast average is substantially larger than slow average
-        // printf("c restarting after %i conflicts (%i %i) %i \n", S->res, S->fast, S->slow, S->nLemmas > S->maxLemmas);
-        S->res = 0;
-        S->fast = (S->slow / 100) * 125;
-        restart(S); // Restart and update the averages
-        if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6); 
-          //reduceDB(S,10);
-          //printf("c reduced\n");
-      }
-    } // Reduce the DB when it contains too many lemmas
-
-    while (S->falses[decision] || S->falses[-decision])
-    { // As long as the temporay decision is assigned
-      decision = S->prev[decision];
-      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
-    }
-    if (decision == 0)
-      return SAT;                                         // If the end of the list is reached, then a solution is found
-    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
-    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
-    *(S->assigned++) = -decision;                         // And push it on the assigned stack
-    decision = abs(decision);
-    S->reason[decision] = 0;
-  }
-  return STOPPED;
-} // Decisions have no reason clauses
 void assign_decision(struct solver *S, int lit)
 {
-  /*int watch = S->first[lit]; // Obtain the first watch pointer
-  if(watch == END)
-    return;
-  int __mram_ptr* clause = (S->DB + watch); // Get the clause from DB  
-  if(clause[2] == lit)
-    assign(S,clause+2,1);*/
   S->falses[-lit] = IMPLIED;          // Mark lit as true and IMPLIED if forced
   *(S->assigned++) = -lit;            // Push it on the assignment stack
   S->reason[abs(lit)] = END;          // Set the reason as undefined ( different from 0 ).
   S->model[abs(lit)] = (lit > 0);
 }
-#endif // DPU
-
-void show_solver_info_debug(struct solver S)
-{
-  log_message(LOG_LEVEL_INFO,"Solver data base");
-  int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1,__INT_MAX__};
-  int current = partition[0];
-  int cumul = 0;
-  int j = 0;
-  for (int i = 0; i < S.mem_used; i++)
-  {
-    if (cumul == current || i == 0)
-    {
-      switch (j)
-      {
-      case MODEL:
-        printf(ANSI_COLOR_YELLOW "\n\nmodel:");
-        break;
-      case NEXT:
-        printf(ANSI_COLOR_YELLOW "\n\nnext:");
-        break;
-      case PREV:
-        printf(ANSI_COLOR_YELLOW "\n\nprev:");
-        break;
-      case BUFFER:
-        printf(ANSI_COLOR_YELLOW "\n\nbuffer:");
-        break;
-      case REASON:
-        printf(ANSI_COLOR_YELLOW "\n\nreason:");
-        break;
-      case FALSESTACK:
-        printf(ANSI_COLOR_YELLOW "\n\nfalseStack:");
-        break;
-      case FALSES:
-        printf(ANSI_COLOR_YELLOW "\n\nfalses:");
-        break;
-      case FIRST:
-        printf(ANSI_COLOR_YELLOW "\n\nfirst:");
-        break;
-      case CLAUSES:
-        printf(ANSI_COLOR_YELLOW "\n\nclauses:");
-        break;
-      }
-      cumul = 0;
-      current = partition[j++];
-    }
-    printf(ANSI_COLOR_RESET "[%d,%d] ", i, S.DB[i]);
-    cumul++;
-  }
-  printf("\n");
-}
-void show_solver_stats(struct solver S)
-{
-  log_message(LOG_LEVEL_INFO,"Solver stats");
-  printf("nVars     = %d\n", S.nVars);
-  printf("nClauses  = %d\n", S.nClauses);
-  printf("mem_used  = %d\n", S.mem_used);
-  printf("mem fixed = %d\n", S.mem_fixed);
-  printf("maxLemmas = %d\n", S.maxLemmas);
-  printf("nLemmas   = %d\n", S.nLemmas);
-  printf("nConflicts= %d\n", S.nConflicts);
-  printf("fast      = %d\n", S.fast);
-  printf("slow      = %d\n", S.slow);
-  printf("head      = %d\n", S.head);
-  printf("res       = %d\n", S.res);
-  printf("prev      = %d\n", S.prev[0]);
-  printf("next      = %d\n", S.next[0]);
-  printf("first     = %d\n", S.first[0]);
-  printf("falses    = %d\n", S.falses[0]);
-  printf("falseStack= %d\n", S.falseStack[0]);
-  printf("assigned  = %d\n", S.assigned[0]);
-  printf("processed = %d\n", S.processed[0]);
-  printf("reason    = %d\n", S.reason[0]);
-  printf("forced    = %d\n", S.forced[0]);
-  printf("buffer    = %d\n", S.buffer[0]);
-  printf("model     = %d\n", S.model[0]);
-}
-void show_result(struct solver S)
-{
-  log_message(LOG_LEVEL_INFO,"Results :");
-  for (int i = 0; i < S.nVars + 1; i++)
-  {
-    printf("[%d,%d] ",i,(int)S.model[i]);
-  }
-  printf("\n");
-}
-void unassign_last_decision(struct solver *S) 
-{
-  int lit = *(--S->assigned);
-  unassign(S,lit);
-}
-
-int get_unassigned(struct solver S)
-{
-  for(int i = 1 ; i < S.nVars; i++)
-  {
-    if(!(S.falses[i] != 0 || S.falses[-i] != 0))
-    {
-      return i;
-    }
-  }
-  return 0;
-}
-int solve(struct solver *S,int stop_it)
+int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it,int factor,int thresh_hold)
 { // Determine satisfiability
-  int restarts = 0;
-  int decision = S->head;
-  S->res = 0; // Initialize the solver
-  for (int i = 0; i < stop_it ; i++)
-  {                              // Main solve loop
-    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    //printf("propagating\n");
-    if (propagate(S) == UNSAT)
-    {
-      printf("restarts %d\n",restarts);
-      return UNSAT; // Propagation returns UNSAT for a root level conflict
-    
-    }
-    if (S->nLemmas > old_nLemmas)
-    { // If the last decision caused a conflict
-      // printf("new learned clause\n");
-      decision = S->head; // Reset the decision heuristic to head
-      if (S->fast > (S->slow / 100) * 125) 
-      { // If fast average is substantially larger than slow average
-        printf("restarted after %d conflicts\n",S->res);
-        S->res = 0;
-        S->fast = (S->slow / 100) * 125; // 125
-        restart(S); // Restart and update the averages
-        restarts++;
-        if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6); 
-      }
-    } // Reduce the DB when it contains too many lemmas
-
-    while (S->falses[decision] || S->falses[-decision])
-    { // As long as the temporay decision is assigned
-      decision = S->prev[decision];
-      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
-    }
-    if (decision == 0)
-    {
-      printf("restarts %d\n",restarts);
-      return SAT;                                         // If the end of the list is reached, then a solution is found
-    }
-    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
-    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
-    *(S->assigned++) = -decision;                         // And push it on the assigned stack
-    decision = abs(decision);
-    S->reason[decision] = 0;
+  switch (restart_p)
+  {
+  case DEFAULT:
+    return solve(S,stop_it);
+    break;
+/*#ifndef DPU
+  case RANDOM:
+    return solve_random(S,stop_it);
+    break;
+#endif //DPU
+  case LUBY:
+    return solve_luby(S,stop_it);
+    break;
+*/
+  case GEOMETRIC:
+    return solve_geometric(S,stop_it,factor,thresh_hold);
+    break;
+  case FIXED:
+    return solve_fixed(S,stop_it,thresh_hold);
+    break;
+  case ADAPTIVE:
+    return solve_adaptive(S,stop_it,factor,thresh_hold);
+    break;
+  default:
+    return UNSAT;
+    break;
   }
-  printf("restarts %d\n",restarts);
-  return STOPPED;
 } // Decisions have no reason clauses
-int solve_random(struct solver* S,int stop_it)
-{
-  // Determine satisfiability
-  int restarts = 0;
-  int restart_threshold = MIN_THRESHOLD;
-  int conflicts = 0;
-  int decision = S->head;
-  S->res = 0; // Initialize the solver
-  for (int i = 0; i < stop_it ; i++)
-  {                              // Main solve loop
-    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    //printf("propagating\n");
-    if (propagate(S) == UNSAT)
-    {
-      printf("restarts %d\n",restarts);
-      return UNSAT; // Propagation returns UNSAT for a root level conflict
-    
-    }
-    if (S->nLemmas > old_nLemmas)
-    { // If the last decision caused a conflict
-      // printf("new learned clause\n");
-      decision = S->head; // Reset the decision heuristic to head
-      conflicts++;
-      if (conflicts >= restart_threshold) 
-      { 
-        printf("restarted after %d conflicts\n",conflicts);
-        S->res = 0;
-        conflicts = 0;                                      //Reset conflicts
-        restart_threshold = rand() % MAX_RANDOM_THRESHHOLD;
-        restart(S); // Restart and update the averages
-        restarts++;
-        if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6); 
-      }
-    } // Reduce the DB when it contains too many lemmas
-
-    while (S->falses[decision] || S->falses[-decision])
-    { // As long as the temporay decision is assigned
-      decision = S->prev[decision];
-      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
-    }
-    if (decision == 0)
-    {
-      printf("restarts %d\n",restarts);
-      return SAT;                                         // If the end of the list is reached, then a solution is found
-    }
-    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
-    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
-    *(S->assigned++) = -decision;                         // And push it on the assigned stack
-    decision = abs(decision);
-    S->reason[decision] = 0;
-  }
-  printf("restarts %d\n",restarts);
-  return STOPPED;
-}
 int solve_luby(struct solver* S,int stop_it)
 {
-
+  return 0;
 }
-int solve_geometric(struct solver* S,int stop_it)
+int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_thresh_hold)
 {
   int restarts = 0;
-  double restart_threshold = MIN_THRESHOLD;
+  double restart_threshold = min_thresh_hold;
   int conflicts = 0;
   int decision = S->head;
 
@@ -907,7 +885,7 @@ int solve_geometric(struct solver* S,int stop_it)
         printf("restarted after %d conflicts\n",conflicts);
         S->res = 0;
         conflicts = 0;
-        restart_threshold *= GEOMETRIC_FACTOR;
+        restart_threshold *= geometric_factor;
         restart(S);
         restarts++;
         if (S->nLemmas > S->maxLemmas)
@@ -938,9 +916,9 @@ int solve_geometric(struct solver* S,int stop_it)
   printf("restarts %d\n",restarts);
   return STOPPED;
 }
-int solve_adaptive(struct solver* S, int stop_it) {
+int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thresh_hold) {
   int restarts = 0;
-  double restart_threshold = MIN_THRESHOLD;
+  double restart_threshold = min_thresh_hold;
   int conflicts = 0;
   int decision = S->head;
   int last_restart_conflicts = 0;
@@ -963,9 +941,9 @@ int solve_adaptive(struct solver* S, int stop_it) {
         S->res = 0;
         double progress = (double)last_restart_conflicts / conflicts ;
         if (progress > PROGRESS_THRESHOLD) {
-          restart_threshold *= ADAPTIVE_FACTOR;
+          restart_threshold *= adaptive_factor;
         } else {
-          restart_threshold /= ADAPTIVE_FACTOR;
+          restart_threshold /= adaptive_factor;
         }
         last_restart_conflicts = conflicts;
         printf("restarted after %d conflicts\n",conflicts);
@@ -999,9 +977,9 @@ int solve_adaptive(struct solver* S, int stop_it) {
   printf("restarts %d\n",restarts);
   return STOPPED;
 }
-int solve_fixed(struct solver* S, int stop_it) {
+int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
   int restarts = 0;
-  int restart_threshold = FIXED_THRESHOLD;
+  int restart_threshold = fixed_thresh_hold;
   int conflicts = 0;
   int decision = S->head;
 
@@ -1049,6 +1027,27 @@ int solve_fixed(struct solver* S, int stop_it) {
   printf("restarts %d\n",restarts);
   return STOPPED;
 }
+#endif // DPU
+// FOR BOTH HOST AND DPU
+
+void unassign_last_decision(struct solver *S) 
+{
+  int lit = *(--S->assigned);
+  unassign(S,lit);
+}
+
+int get_unassigned(struct solver S)
+{
+  for(int i = 1 ; i < S.nVars; i++)
+  {
+    if(!(S.falses[i] != 0 || S.falses[-i] != 0))
+    {
+      return i;
+    }
+  }
+  return 0;
+}
+
 void picosat_proof(struct solver S)
 {
   for(int i = 1 ; i < S.nVars+1 ; i++)
@@ -1058,5 +1057,24 @@ void picosat_proof(struct solver S)
       m = -1;
     printf("-a %d ",i *m);
   }
-  printf("\n");
+  printf("\n\n");
+}
+void show_result(struct solver S)
+{
+#ifndef DPU
+  log_message(LOG_LEVEL_INFO,"Results :");
+#else
+  printf("[DPU] Results:\n");  
+#endif  
+  for (int i = 0; i < S.nVars + 1; i++)
+  {
+    printf("[%d,%d] ",i,(int)S.model[i]);
+  }
+  printf("\n\n");
+#ifndef DPU
+  log_message(LOG_LEVEL_INFO,"Pico Sat proof:");
+#else
+  printf("[DPU] Pico Sat proof:\n");  
+#endif  
+  picosat_proof(S);
 }

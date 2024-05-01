@@ -25,6 +25,7 @@
         "assert.h": "c",
         "cmath": "c",
         "cstdlib": "c",
-        "algorithm": "c"
+        "algorithm": "c",
+        "log.h": "c"
     }
 }

@@ -1,16 +1,22 @@
 #include <stdio.h>
-#include "microsat.h"
-#include <mram.h>
-#include <alloc.h>
-#include "log.h"
-#include <barrier.h>       
-#include <defs.h>   
+#include "microsat.h"   
+#include "utils.h"
+#include "mram.h"
+/**
+ * SOLVER DATA TRANSFER
+*/
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
+/**
+ * RETURN VALUE
+*/
 __host int dpu_ret;
-__host uint32_t dpu_id;
-int first;
-int relaunch;
+__host int dpu_id;
+
+/**
+ * PORTFOLIO ARGS
+*/
+__host portfolio_args dpu_args;
 void populate_solver_context(struct solver *dpu_solver)
 {                     
   dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
@@ -37,6 +43,32 @@ void populate_solver_context(struct solver *dpu_solver)
   dpu_solver->falses = dpu_solver->DB + dpu_DB_offsets[9];
   dpu_solver->first = dpu_solver->DB + dpu_DB_offsets[10];
 }
+/**
+ * Initialization flag
+*/
+int first;
+/**
+ * Iterations
+*/
+__host int dpu_iterations;
+int main()
+{
+  struct solver dpu_solver;
+  if(first == 0)
+    populate_solver_context(&dpu_solver);
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.factor,dpu_args.min_thresh_hold);
+  if(dpu_ret == SAT)
+  {
+    printf("SOLVED using %d\n",dpu_args.restart_policy);
+    show_result(dpu_solver);
+  }
+  first++;
+}
+/**
+ * DIVIDE AND CONQUER
+
+int first;
+int relaunch;
 void divide_and_conquer_kernel()
 {
   struct solver dpu_solver;
@@ -66,15 +98,7 @@ void divide_and_conquer_kernel()
     //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
   first++;
-}
-void pure_portfolio_kernel()
-{
-  
-}
-int main()
-{
-  divide_and_conquer_kernel();
-}
+}*/
 /*__host int dpu_last_mem_used;
 __host int dpu_mem_used;
 __host int dpu_lc[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
