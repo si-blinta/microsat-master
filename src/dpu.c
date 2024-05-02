@@ -7,11 +7,14 @@
 */
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
+__host int learned_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
+__host int dpu_mem_used;
+__host int dpu_old_mem_used;
+
 /**
  * RETURN VALUE
 */
 __host int dpu_ret;
-__host int dpu_id;
 
 /**
  * PORTFOLIO ARGS
@@ -60,7 +63,9 @@ int main()
     populate_solver_context(&dpu_solver);
     first = 1;
   }
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,10,dpu_args.factor,dpu_args.min_thresh_hold);
+  dpu_old_mem_used = dpu_solver.mem_used;
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.factor,dpu_args.min_thresh_hold);
+  dpu_mem_used = dpu_solver.mem_used;
   if(dpu_ret == SAT)
   {
     printf("SOLVED using %d\n",dpu_args.restart_policy);

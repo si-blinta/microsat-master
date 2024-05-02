@@ -27,6 +27,7 @@
         "cstdlib": "c",
         "algorithm": "c",
         "log.h": "c",
-        "float.h": "c"
+        "float.h": "c",
+        "utils.h": "c"
     }
 }

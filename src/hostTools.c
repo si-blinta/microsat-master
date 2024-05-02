@@ -184,6 +184,8 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
 } 
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 {
+  int learnt_clauses[MAX_CLAUSE_SIZE][MAX_CLAUSE_SIZE+1];
+  int learnt_clause_count = 0;
   struct dpu_set_t dpu;
   struct solver dpu_solver;
   portfolio_args args;
@@ -203,41 +205,78 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
-
+  //free(dpu_solver.DB);
   DPU_FOREACH(set,dpu)
   {
     args.factor          = drand48() + 1;
-    args.restart_policy  = FIXED;
-    args.min_thresh_hold = rand() % 1000 + 100;
-    log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);
+    args.restart_policy  = rand()%3;
+    args.min_thresh_hold = rand() % 1000 + 5;
+    //log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);
     DPU_ASSERT(dpu_copy_to(dpu,"dpu_args",0,&args,sizeof(args)));
   }
-
+  //99545
   clock_t start,end;
   double duration;
   start = clock();
   while(!finish)
   {
-    int iterations = rand()%1000 + 1000;
+    int iterations = rand()%1000 + 100;
     DPU_ASSERT(dpu_broadcast_to(set,"dpu_iterations",0,&iterations,sizeof(int),DPU_XFER_DEFAULT));
-    log_message(LOG_LEVEL_INFO,"Launching");
+    log_message(LOG_LEVEL_INFO,"Launching with %d iterations",iterations);
     DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
     DPU_FOREACH(set,dpu)
     { 
       DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
-      if(dpu_ret == SAT)
+      if(dpu_ret== STOPPED)
+      {
+        //log_message(LOG_LEVEL_INFO,"STOPPED");
+        //Share learned clauses
+      int mem_used, old_mem_used;
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_mem_used",0,&mem_used,sizeof(int)));
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_old_mem_used",0,&old_mem_used,sizeof(int)));
+      if(mem_used - old_mem_used > 0)
+      { 
+        int clauses_buffer[1024] = {0};
+        DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,rounddown(old_mem_used,8)*sizeof(int),clauses_buffer,1024*sizeof(int)));
+        int start = old_mem_used - rounddown(old_mem_used,8);
+        for(int i = start; i < 1024-start ; i++)
+        {
+          printf("%d ",clauses_buffer[i]);
+        } 
+        printf("\n");
+        int i = old_mem_used;
+        while (i < mem_used) 
+        {
+          i += 2; // Move to the next element after the watch pointers
+          int clause_size = 0;
+          while (i < mem_used && clauses_buffer[i+start] != 0)
+          {
+            clause_size++;
+            i++;
+          }
+          if (learnt_clause_count < MAX_LEARNT_CLAUSES && clause_size < MAX_CLAUSE_SIZE) 
+          {
+          // Copy the learned clause to the array
+          memcpy(learnt_clauses[learnt_clause_count]+1, (clauses_buffer + start + i - clause_size), clause_size * sizeof(int));
+          learnt_clauses[learnt_clause_count][0] = clause_size;
+          printf("learned a clause : size %d \n",clause_size);
+          for(int i = 0 ; i < learnt_clauses[learnt_clause_count][0] ; i++)
+            printf("%d ",learnt_clauses[learnt_clause_count][i]);
+          printf("\n");
+          learnt_clause_count++; // Increment the total count of learned clauses
+          }
+        i++;
+        }
+              exit(0);  
+      }
+      else if(dpu_ret == SAT)
       {
         log_message(LOG_LEVEL_INFO,"DPU SAT");
         dpu_log_read(dpu,stdout);
         finish = 1;
         break;
       }
-      if(dpu_ret== STOPPED)
-      {
-        //log_message(LOG_LEVEL_INFO,"STOPPED");
-
-      }
-      if(dpu_ret == UNSAT)
+      else if(dpu_ret == UNSAT)
       {
         log_message(LOG_LEVEL_INFO,"DPU UNSAT");
         finish = 1;
@@ -260,6 +299,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   }
   else 
     log_message(LOG_LEVEL_INFO,"HOST UNSAT");
+}
 }
 /**
  * #if SHARING

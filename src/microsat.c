@@ -22,7 +22,6 @@ int solve(struct solver *S,int stop_it)
       decision = S->head; // Reset the decision heuristic to head
       if (S->fast > (S->slow / 100) * 125) 
       { // If fast average is substantially larger than slow average
-        printf("restarted after %d conflicts\n",S->res);
         S->res = 0;
         S->fast = (S->slow / 100) * 125; // 125
         restart(S); // Restart and update the averages
@@ -51,81 +50,7 @@ int solve(struct solver *S,int stop_it)
   printf("restarts %d\n",restarts);
   return STOPPED;
 } // Decisions have no reason clauses
-void show_solver_info_debug(struct solver S)
-{
-  log_message(LOG_LEVEL_INFO,"Solver data base");
-  int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1,__INT_MAX__};
-  int current = partition[0];
-  int cumul = 0;
-  int j = 0;
-  for (int i = 0; i < S.mem_used; i++)
-  {
-    if (cumul == current || i == 0)
-    {
-      switch (j)
-      {
-      case MODEL:
-        printf(ANSI_COLOR_YELLOW "\n\nmodel:");
-        break;
-      case NEXT:
-        printf(ANSI_COLOR_YELLOW "\n\nnext:");
-        break;
-      case PREV:
-        printf(ANSI_COLOR_YELLOW "\n\nprev:");
-        break;
-      case BUFFER:
-        printf(ANSI_COLOR_YELLOW "\n\nbuffer:");
-        break;
-      case REASON:
-        printf(ANSI_COLOR_YELLOW "\n\nreason:");
-        break;
-      case FALSESTACK:
-        printf(ANSI_COLOR_YELLOW "\n\nfalseStack:");
-        break;
-      case FALSES:
-        printf(ANSI_COLOR_YELLOW "\n\nfalses:");
-        break;
-      case FIRST:
-        printf(ANSI_COLOR_YELLOW "\n\nfirst:");
-        break;
-      case CLAUSES:
-        printf(ANSI_COLOR_YELLOW "\n\nclauses:");
-        break;
-      }
-      cumul = 0;
-      current = partition[j++];
-    }
-    printf(ANSI_COLOR_RESET "[%d,%d] ", i, S.DB[i]);
-    cumul++;
-  }
-  printf("\n");
-}
-void show_solver_stats(struct solver S)
-{
-  log_message(LOG_LEVEL_INFO,"Solver stats");
-  printf("nVars     = %d\n", S.nVars);
-  printf("nClauses  = %d\n", S.nClauses);
-  printf("mem_used  = %d\n", S.mem_used);
-  printf("mem fixed = %d\n", S.mem_fixed);
-  printf("maxLemmas = %d\n", S.maxLemmas);
-  printf("nLemmas   = %d\n", S.nLemmas);
-  printf("nConflicts= %d\n", S.nConflicts);
-  printf("fast      = %d\n", S.fast);
-  printf("slow      = %d\n", S.slow);
-  printf("head      = %d\n", S.head);
-  printf("res       = %d\n", S.res);
-  printf("prev      = %d\n", S.prev[0]);
-  printf("next      = %d\n", S.next[0]);
-  printf("first     = %d\n", S.first[0]);
-  printf("falses    = %d\n", S.falses[0]);
-  printf("falseStack= %d\n", S.falseStack[0]);
-  printf("assigned  = %d\n", S.assigned[0]);
-  printf("processed = %d\n", S.processed[0]);
-  printf("reason    = %d\n", S.reason[0]);
-  printf("forced    = %d\n", S.forced[0]);
-  printf("buffer    = %d\n", S.buffer[0]);
-  printf("model     = %d\n", S.model[0]);
-}
+
 
 void assign_decision(struct solver *S, int lit)
 {
@@ -367,62 +292,6 @@ int propagate(struct solver *S)
   return SAT;
 } // Finally, no conflict was found
 
-int solve_random(struct solver* S,int stop_it)
-{
-  // Determine satisfiability
-  int restarts = 0;
-  int restart_threshold = MIN_THRESHOLD;
-  int conflicts = 0;
-  int decision = S->head;
-  S->res = 0; // Initialize the solver
-  for (int i = 0; i < stop_it ; i++)
-  {                              // Main solve loop
-    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    //printf("propagating\n");
-    if (propagate(S) == UNSAT)
-    {
-      printf("restarts %d\n",restarts);
-      return UNSAT; // Propagation returns UNSAT for a root level conflict
-    
-    }
-    if (S->nLemmas > old_nLemmas)
-    { // If the last decision caused a conflict
-      // printf("new learned clause\n");
-      decision = S->head; // Reset the decision heuristic to head
-      conflicts++;
-      if (conflicts >= restart_threshold) 
-      { 
-        printf("restarted after %d conflicts\n",conflicts);
-        S->res = 0;
-        conflicts = 0;                                      //Reset conflicts
-        restart_threshold = rand() % MAX_RANDOM_THRESHHOLD;
-        restart(S); // Restart and update the averages
-        restarts++;
-        if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6); 
-      }
-    } // Reduce the DB when it contains too many lemmas
-
-    while (S->falses[decision] || S->falses[-decision])
-    { // As long as the temporay decision is assigned
-      decision = S->prev[decision];
-      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
-    }
-    if (decision == 0)
-    {
-      printf("restarts %d\n",restarts);
-      return SAT;                                         // If the end of the list is reached, then a solution is found
-    }
-    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
-    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
-    *(S->assigned++) = -decision;                         // And push it on the assigned stack
-    decision = abs(decision);
-    S->reason[decision] = 0;
-  }
-  printf("restarts %d\n",restarts);
-  return STOPPED;
-}
-
 void initCDCL(struct solver *S, int n, int m)
 {
   if (n < 1)
@@ -432,7 +301,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = 100;         // Initial maximum number of learnt clauses  //2000 default
+  S->maxLemmas = 5000;         // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
@@ -834,9 +703,6 @@ int solve_portfolio(struct solver *S,int restart_p,int stop_it,float factor,int 
   case FIXED:
     return solve_fixed(S,stop_it,thresh_hold);
     break;
-  /*case ADAPTIVE:
-    return solve_adaptive(S,stop_it,factor,thresh_hold);
-    break;*/
   default:
     return solve(S,stop_it);
     break;
@@ -865,7 +731,6 @@ int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_
       decision = S->head;
       conflicts++;
       if (conflicts >= restart_threshold) {
-        printf("restarted after %d conflicts\n",conflicts);
         S->res = 0;
         conflicts = 0;
         restart_threshold *= geometric_factor;
@@ -873,58 +738,6 @@ int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_
         if (S->nLemmas > S->maxLemmas)
         {
             reduceDB(S, 6);
-        }
-      }
-    }
-
-    while (S->falses[decision] || S->falses[-decision]) {
-      decision = S->prev[decision];
-    }
-
-    if (decision == 0) {
-      return SAT;
-    }
-
-    decision = S->model[decision] ? decision : -decision;
-    S->falses[-decision] = 1;
-    *(S->assigned++) = -decision;
-    decision = abs(decision);
-    S->reason[decision] = 0;
-  }
-  return STOPPED;
-}
-int solve_adaptive(struct solver* S, int stop_it,float adaptive_factor,int min_thresh_hold) {
-  float restart_threshold = (float) min_thresh_hold;
-  int conflicts = 0;
-  int decision = S->head;
-  int last_restart_conflicts = 0;
-
-  S->res = 0;
-
-  for (int i = 0; i < stop_it ; i++) {
-    int old_nLemmas = S->nLemmas;
-
-    if (propagate(S) == UNSAT) {
-      return UNSAT;
-    }
-
-    if (S->nLemmas > old_nLemmas) {
-      decision = S->head;
-      conflicts++;
-      if (conflicts >= restart_threshold) {
-        S->res = 0;
-        float progress = (float)last_restart_conflicts / (float)conflicts ;
-        if (progress > PROGRESS_THRESHOLD) {
-          restart_threshold *= adaptive_factor;
-        } else {
-          restart_threshold /= adaptive_factor;
-        }
-        last_restart_conflicts = conflicts;
-        conflicts = 0;
-        restart(S);
-        if (S->nLemmas > S->maxLemmas)
-        {
-          reduceDB(S, 6);
         }
       }
     }
@@ -963,7 +776,6 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
       decision = S->head;
       conflicts++;
       if (conflicts >= restart_threshold) {
-        printf("restarted after %d conflicts\n",conflicts);
         S->res = 0;
         conflicts = 0;
         restart(S);
@@ -1040,4 +852,94 @@ void show_result(struct solver S)
   printf("[DPU] Pico Sat proof:\n");  
 #endif  
   picosat_proof(S);
+}
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN "\x1b[36m"
+#define ANSI_COLOR_RESET "\x1b[0m"
+void show_solver_info_debug(struct solver S)
+{
+#ifndef DPU  
+    log_message(LOG_LEVEL_INFO,"Solver data base");
+#else 
+  printf("[DPU] Solver data base:\n");
+#endif
+  int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1,__INT_MAX__};
+  int current = partition[0];
+  int cumul = 0;
+  int j = 0;
+  for (int i = 0; i < S.mem_used; i++)
+  {
+    if (cumul == current || i == 0)
+    {
+      switch (j)
+      {
+      case MODEL:
+        printf(ANSI_COLOR_YELLOW "\n\nmodel:");
+        break;
+      case NEXT:
+        printf(ANSI_COLOR_YELLOW "\n\nnext:");
+        break;
+      case PREV:
+        printf(ANSI_COLOR_YELLOW "\n\nprev:");
+        break;
+      case BUFFER:
+        printf(ANSI_COLOR_YELLOW "\n\nbuffer:");
+        break;
+      case REASON:
+        printf(ANSI_COLOR_YELLOW "\n\nreason:");
+        break;
+      case FALSESTACK:
+        printf(ANSI_COLOR_YELLOW "\n\nfalseStack:");
+        break;
+      case FALSES:
+        printf(ANSI_COLOR_YELLOW "\n\nfalses:");
+        break;
+      case FIRST:
+        printf(ANSI_COLOR_YELLOW "\n\nfirst:");
+        break;
+      case CLAUSES:
+        printf(ANSI_COLOR_YELLOW "\n\nclauses:");
+        break;
+      }
+      cumul = 0;
+      current = partition[j++];
+    }
+    printf(ANSI_COLOR_RESET "[%d,%d] ", i, S.DB[i]);
+    cumul++;
+  }
+  printf("\n");
+}
+void show_solver_stats(struct solver S)
+{
+#ifndef DPU  
+  log_message(LOG_LEVEL_INFO,"Solver stats");
+#else 
+  printf("[DPU] Solver stats:\n");
+#endif
+  printf("nVars     = %d\n", S.nVars);
+  printf("nClauses  = %d\n", S.nClauses);
+  printf("mem_used  = %d\n", S.mem_used);
+  printf("mem fixed = %d\n", S.mem_fixed);
+  printf("maxLemmas = %d\n", S.maxLemmas);
+  printf("nLemmas   = %d\n", S.nLemmas);
+  printf("nConflicts= %d\n", S.nConflicts);
+  printf("fast      = %d\n", S.fast);
+  printf("slow      = %d\n", S.slow);
+  printf("head      = %d\n", S.head);
+  printf("res       = %d\n", S.res);
+  printf("prev      = %d\n", S.prev[0]);
+  printf("next      = %d\n", S.next[0]);
+  printf("first     = %d\n", S.first[0]);
+  printf("falses    = %d\n", S.falses[0]);
+  printf("falseStack= %d\n", S.falseStack[0]);
+  printf("assigned  = %d\n", S.assigned[0]);
+  printf("processed = %d\n", S.processed[0]);
+  printf("reason    = %d\n", S.reason[0]);
+  printf("forced    = %d\n", S.forced[0]);
+  printf("buffer    = %d\n", S.buffer[0]);
+  printf("model     = %d\n", S.model[0]);
 }
