@@ -51,18 +51,22 @@ int first;
  * Iterations
 */
 __host int dpu_iterations;
+struct solver dpu_solver;
 int main()
 {
-  struct solver dpu_solver;
+
   if(first == 0)
+  {
     populate_solver_context(&dpu_solver);
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.factor,dpu_args.min_thresh_hold);
+    first = 1;
+  }
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,10,dpu_args.factor,dpu_args.min_thresh_hold);
   if(dpu_ret == SAT)
   {
     printf("SOLVED using %d\n",dpu_args.restart_policy);
     show_result(dpu_solver);
   }
-  first++;
+
 }
 /**
  * DIVIDE AND CONQUER

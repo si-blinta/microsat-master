@@ -3,7 +3,7 @@
 typedef struct 
 {
     int restart_policy;
-    int factor;
+    float factor;
     int min_thresh_hold;
 }portfolio_args;
 

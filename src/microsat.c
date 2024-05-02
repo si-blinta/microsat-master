@@ -432,7 +432,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = 40000;         // Initial maximum number of learnt clauses  //2000 default
+  S->maxLemmas = 100;         // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
@@ -728,7 +728,6 @@ int solve(struct solver *S,int stop_it)
     //printf("propagating\n");
     if (propagate(S) == UNSAT)
     {
-      printf("restarts %d\n",restarts);
       return UNSAT; // Propagation returns UNSAT for a root level conflict
     
     }
@@ -738,11 +737,9 @@ int solve(struct solver *S,int stop_it)
       decision = S->head; // Reset the decision heuristic to head
       if (S->fast > (S->slow / 100) * 125) 
       { // If fast average is substantially larger than slow average
-        printf("restarted after %d conflicts\n",S->res);
         S->res = 0;
         S->fast = (S->slow / 100) * 125; // 125
         restart(S); // Restart and update the averages
-        restarts++;
         if (S->nLemmas > S->maxLemmas)
           reduceDB(S, 6); 
       }
@@ -755,7 +752,6 @@ int solve(struct solver *S,int stop_it)
     }
     if (decision == 0)
     {
-      printf("restarts %d\n",restarts);
       return SAT;                                         // If the end of the list is reached, then a solution is found
     }
     decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
@@ -764,7 +760,6 @@ int solve(struct solver *S,int stop_it)
     decision = abs(decision);
     S->reason[decision] = 0;
   }
-  printf("restarts %d\n",restarts);
   return STOPPED;
 } // Decisions have no reason clauses
 int propagate(struct solver *S)
@@ -826,33 +821,24 @@ void assign_decision(struct solver *S, int lit)
   S->reason[abs(lit)] = END;          // Set the reason as undefined ( different from 0 ).
   S->model[abs(lit)] = (lit > 0);
 }
-int solve_portfolio(struct solver *S,enum restart_policy restart_p,int stop_it,int factor,int thresh_hold)
+int solve_portfolio(struct solver *S,int restart_p,int stop_it,float factor,int thresh_hold)
 { // Determine satisfiability
   switch (restart_p)
   {
   case DEFAULT:
     return solve(S,stop_it);
     break;
-/*#ifndef DPU
-  case RANDOM:
-    return solve_random(S,stop_it);
-    break;
-#endif //DPU
-  case LUBY:
-    return solve_luby(S,stop_it);
-    break;
-*/
   case GEOMETRIC:
     return solve_geometric(S,stop_it,factor,thresh_hold);
     break;
   case FIXED:
     return solve_fixed(S,stop_it,thresh_hold);
     break;
-  case ADAPTIVE:
+  /*case ADAPTIVE:
     return solve_adaptive(S,stop_it,factor,thresh_hold);
-    break;
+    break;*/
   default:
-    return UNSAT;
+    return solve(S,stop_it);
     break;
   }
 } // Decisions have no reason clauses
@@ -860,10 +846,9 @@ int solve_luby(struct solver* S,int stop_it)
 {
   return 0;
 }
-int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_thresh_hold)
+int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_thresh_hold)
 {
-  int restarts = 0;
-  double restart_threshold = min_thresh_hold;
+  float restart_threshold = (float)min_thresh_hold;
   int conflicts = 0;
   int decision = S->head;
 
@@ -873,8 +858,6 @@ int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_th
     int old_nLemmas = S->nLemmas;
 
     if (propagate(S) == UNSAT) {
-      printf("restarts %d\n",restarts);
-      printf("restart thresh  = %f\n",restart_threshold);
       return UNSAT;
     }
 
@@ -887,7 +870,6 @@ int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_th
         conflicts = 0;
         restart_threshold *= geometric_factor;
         restart(S);
-        restarts++;
         if (S->nLemmas > S->maxLemmas)
         {
             reduceDB(S, 6);
@@ -900,8 +882,6 @@ int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_th
     }
 
     if (decision == 0) {
-      printf("restart thresh  = %f\n",restart_threshold);
-      printf("restarts %d\n",restarts);
       return SAT;
     }
 
@@ -911,14 +891,10 @@ int solve_geometric(struct solver* S,int stop_it,int geometric_factor,int min_th
     decision = abs(decision);
     S->reason[decision] = 0;
   }
-
-  printf("restart thresh  = %f\n",restart_threshold);
-  printf("restarts %d\n",restarts);
   return STOPPED;
 }
-int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thresh_hold) {
-  int restarts = 0;
-  double restart_threshold = min_thresh_hold;
+int solve_adaptive(struct solver* S, int stop_it,float adaptive_factor,int min_thresh_hold) {
+  float restart_threshold = (float) min_thresh_hold;
   int conflicts = 0;
   int decision = S->head;
   int last_restart_conflicts = 0;
@@ -929,8 +905,6 @@ int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thr
     int old_nLemmas = S->nLemmas;
 
     if (propagate(S) == UNSAT) {
-      printf("restarts %d\n",restarts);
-      printf("restart thresh  = %f\n",restart_threshold);
       return UNSAT;
     }
 
@@ -939,17 +913,15 @@ int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thr
       conflicts++;
       if (conflicts >= restart_threshold) {
         S->res = 0;
-        double progress = (double)last_restart_conflicts / conflicts ;
+        float progress = (float)last_restart_conflicts / (float)conflicts ;
         if (progress > PROGRESS_THRESHOLD) {
           restart_threshold *= adaptive_factor;
         } else {
           restart_threshold /= adaptive_factor;
         }
         last_restart_conflicts = conflicts;
-        printf("restarted after %d conflicts\n",conflicts);
         conflicts = 0;
         restart(S);
-        restarts++;
         if (S->nLemmas > S->maxLemmas)
         {
           reduceDB(S, 6);
@@ -962,8 +934,6 @@ int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thr
     }
 
     if (decision == 0) {
-      printf("restart thresh  = %f\n",restart_threshold);
-      printf("restarts %d\n",restarts);
       return SAT;
     }
 
@@ -973,12 +943,9 @@ int solve_adaptive(struct solver* S, int stop_it,int adaptive_factor,int min_thr
     decision = abs(decision);
     S->reason[decision] = 0;
   }
-  printf("restart thresh  = %f\n",restart_threshold);
-  printf("restarts %d\n",restarts);
   return STOPPED;
 }
 int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
-  int restarts = 0;
   int restart_threshold = fixed_thresh_hold;
   int conflicts = 0;
   int decision = S->head;
@@ -989,7 +956,6 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
     int old_nLemmas = S->nLemmas;
 
     if (propagate(S) == UNSAT) {
-      printf("restarts %d\n",restarts);
       return UNSAT;
     }
 
@@ -1001,7 +967,6 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
         S->res = 0;
         conflicts = 0;
         restart(S);
-        restarts++;
         if (S->nLemmas > S->maxLemmas) {
           reduceDB(S, 6);
         }
@@ -1013,7 +978,6 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
     }
 
     if (decision == 0) {
-      printf("restarts %d\n",restarts);
       return SAT;
     }
 
@@ -1024,7 +988,6 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
     S->reason[decision] = 0;
   }
 
-  printf("restarts %d\n",restarts);
   return STOPPED;
 }
 #endif // DPU

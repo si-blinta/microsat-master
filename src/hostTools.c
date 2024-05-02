@@ -203,13 +203,14 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
+
   DPU_FOREACH(set,dpu)
   {
     args.factor          = drand48() + 1;
-    args.restart_policy  = rand() % 4;
-    args.min_thresh_hold = rand() % 1000 + rand()%1000;
-    //log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);
-    DPU_ASSERT(dpu_copy_to(dpu,"dpu_args",0,&args,sizeof(portfolio_args)));
+    args.restart_policy  = FIXED;
+    args.min_thresh_hold = rand() % 1000 + 100;
+    log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);
+    DPU_ASSERT(dpu_copy_to(dpu,"dpu_args",0,&args,sizeof(args)));
   }
 
   clock_t start,end;
@@ -217,7 +218,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   start = clock();
   while(!finish)
   {
-    int iterations = rand()%100 + 10;
+    int iterations = rand()%1000 + 1000;
     DPU_ASSERT(dpu_broadcast_to(set,"dpu_iterations",0,&iterations,sizeof(int),DPU_XFER_DEFAULT));
     log_message(LOG_LEVEL_INFO,"Launching");
     DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));

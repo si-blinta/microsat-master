@@ -26,6 +26,7 @@
         "cmath": "c",
         "cstdlib": "c",
         "algorithm": "c",
-        "log.h": "c"
+        "log.h": "c",
+        "float.h": "c"
     }
 }
