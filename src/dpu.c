@@ -7,7 +7,7 @@
 */
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
-__host int learned_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
+__host int learnt_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
 __host int dpu_mem_used;
 __host int dpu_old_mem_used;
 

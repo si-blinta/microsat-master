@@ -184,7 +184,8 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
 } 
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 {
-  int learnt_clauses[MAX_CLAUSE_SIZE][MAX_CLAUSE_SIZE+1];
+  int learnt_clauses[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
+  int learnt_clauses_sizes[MAX_LEARNT_CLAUSES];
   int learnt_clause_count = 0;
   struct dpu_set_t dpu;
   struct solver dpu_solver;
@@ -231,43 +232,42 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
       {
         //log_message(LOG_LEVEL_INFO,"STOPPED");
         //Share learned clauses
-      int mem_used, old_mem_used;
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_mem_used",0,&mem_used,sizeof(int)));
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_old_mem_used",0,&old_mem_used,sizeof(int)));
-      if(mem_used - old_mem_used > 0)
-      { 
-        int clauses_buffer[1024] = {0};
-        DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,rounddown(old_mem_used,8)*sizeof(int),clauses_buffer,1024*sizeof(int)));
-        int start = old_mem_used - rounddown(old_mem_used,8);
-        for(int i = start; i < 1024-start ; i++)
-        {
-          printf("%d ",clauses_buffer[i]);
-        } 
-        printf("\n");
-        int i = old_mem_used;
-        while (i < mem_used) 
-        {
-          i += 2; // Move to the next element after the watch pointers
-          int clause_size = 0;
-          while (i < mem_used && clauses_buffer[i+start] != 0)
+        int mem_used, old_mem_used;
+        DPU_ASSERT(dpu_copy_from(dpu,"dpu_mem_used",0,&mem_used,sizeof(int)));
+        DPU_ASSERT(dpu_copy_from(dpu,"dpu_old_mem_used",0,&old_mem_used,sizeof(int)));
+        if(mem_used - old_mem_used > 0)
+        { 
+          int clauses_buffer[1024] = {0};
+          DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,rounddown(old_mem_used,8)*sizeof(int),clauses_buffer,1024*sizeof(int)));
+          int start = old_mem_used - rounddown(old_mem_used,8);
+          int i = start;
+          printf("%d \n\n",start);
+          for(int i = 0; i < 1024-start;i++)
+                printf("%d ",clauses_buffer[i]);
+              printf("\n");
+          while (i < 1024-start) 
           {
-            clause_size++;
-            i++;
+            i += 2; // Move to the next element after the watch pointers
+            int clause_size = 0;
+            while (i < 1024-start && clauses_buffer[i+start] != 0)
+            {
+              clause_size++;
+              i++;
+            }
+            if (clauses_buffer[i+start] == 0 && learnt_clause_count < MAX_LEARNT_CLAUSES && clause_size < MAX_CLAUSE_SIZE) 
+            {
+              // Copy the learned clause to the array
+              memcpy(learnt_clauses[learnt_clause_count], (clauses_buffer + start + i - clause_size), clause_size * sizeof(int));
+              learnt_clauses_sizes[learnt_clause_count] = clause_size;
+              printf("learned a clause : size %d \n",clause_size);
+              for(int i = 0; i < learnt_clauses_sizes[learnt_clause_count];i++)
+                printf("%d ",learnt_clauses[learnt_clause_count][i]);
+              printf("\n");
+              learnt_clause_count++; // Increment the total count of learned clauses
+            }
+          i++;
           }
-          if (learnt_clause_count < MAX_LEARNT_CLAUSES && clause_size < MAX_CLAUSE_SIZE) 
-          {
-          // Copy the learned clause to the array
-          memcpy(learnt_clauses[learnt_clause_count]+1, (clauses_buffer + start + i - clause_size), clause_size * sizeof(int));
-          learnt_clauses[learnt_clause_count][0] = clause_size;
-          printf("learned a clause : size %d \n",clause_size);
-          for(int i = 0 ; i < learnt_clauses[learnt_clause_count][0] ; i++)
-            printf("%d ",learnt_clauses[learnt_clause_count][i]);
-          printf("\n");
-          learnt_clause_count++; // Increment the total count of learned clauses
-          }
-        i++;
-        }
-              exit(0);  
+          exit(0);  
       }
       else if(dpu_ret == SAT)
       {

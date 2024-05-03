@@ -6,8 +6,8 @@
 #ifdef DPU
 #include <defs.h>
 #endif
-#define MAX_CLAUSE_SIZE 10
-#define MAX_LEARNT_CLAUSES 5
+#define MAX_CLAUSE_SIZE 100
+#define MAX_LEARNT_CLAUSES 100
 enum
 {
   END = -9,
