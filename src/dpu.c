@@ -61,14 +61,14 @@ int conflicts;
 uint32_t seed;
 int main()
 {
+
   seed = dpu_args.seed;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
     first = 1;
   }
-  show_solver_info_debug(dpu_solver);
-  dpu_ret = solve(&dpu_solver,1);
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
   if(dpu_ret == SAT)
   {
     printf("[DPU] SOLVED using ");
