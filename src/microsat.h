@@ -3,11 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #ifdef DPU
 #include <defs.h>
 #endif
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
+#define REDUCE_LIMIT 2
+#define MAX_LEMMAS 2000
 enum
 {
   END = -9,
@@ -16,7 +19,7 @@ enum
   STOPPED=3,
   MARK = 2,
   IMPLIED = 6,
-  MEM_MAX = 15000000,
+  MEM_MAX = 15000000/10,
   NO_RELAUNCH = 99
 }; // 64 Kbytes is maximum memory that a dpu can allocate.(to modify)
 enum
@@ -33,8 +36,8 @@ enum
 };
 enum restart_policy {
   DEFAULT,
-  GEOMETRIC,
-  FIXED
+  FIXED,
+  RANDOM
 };
 #ifndef DPU
 struct solver
@@ -83,11 +86,7 @@ void show_solver_stats(struct solver S);
 void show_result(struct solver S);
 void assign_decision (struct solver* S, int lit);
 void unassign_last_decision(struct solver *S);
-int solve_portfolio(struct solver *S,int restart_p,int stop_it,float factor,int thresh_hold);
 int get_unassigned(struct solver S);
-int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_thresh_hold);
-int solve_luby(struct solver* S,int stop_it);
-int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold);
 void picosat_proof(struct solver S);
 #else
 void unassign(struct solver *S, int lit);
@@ -112,6 +111,7 @@ int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_
 int solve_luby(struct solver* S,int stop_it);
 int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold);
 void picosat_proof(struct solver S);
-int solve_portfolio(struct solver *S,int restart_p,int stop_it,float factor,int thresh_hold);
+int solve_portfolio(struct solver *S,int restart_p,int stop_it,int thresh_hold);
+int solve_random(struct solver* S, int stop_it);
 #endif // DPU 
 #endif

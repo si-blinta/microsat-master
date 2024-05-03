@@ -12,7 +12,6 @@ int solve(struct solver *S,int stop_it)
     //printf("propagating\n");
     if (propagate(S) == UNSAT)
     {
-      printf("restarts %d\n",restarts);
       return UNSAT; // Propagation returns UNSAT for a root level conflict
     
     }
@@ -27,7 +26,7 @@ int solve(struct solver *S,int stop_it)
         restart(S); // Restart and update the averages
         restarts++;
         if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6); 
+          reduceDB(S, REDUCE_LIMIT); 
       }
     } // Reduce the DB when it contains too many lemmas
 
@@ -38,7 +37,6 @@ int solve(struct solver *S,int stop_it)
     }
     if (decision == 0)
     {
-      printf("restarts %d\n",restarts);
       return SAT;                                         // If the end of the list is reached, then a solution is found
     }
     decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
@@ -47,7 +45,6 @@ int solve(struct solver *S,int stop_it)
     decision = abs(decision);
     S->reason[decision] = 0;
   }
-  printf("restarts %d\n",restarts);
   return STOPPED;
 } // Decisions have no reason clauses
 
@@ -117,9 +114,6 @@ int *addClause(struct solver *S, int *in, int size, int irr)
 void reduceDB(struct solver *S, int k)
 { printf("reduce\n");
   // Removes "less useful" lemmas from DB
-  //printf("c reducing %d=>", S->nLemmas);
-  while (S->nLemmas > S->maxLemmas)
-    S->maxLemmas += 300; // Allow more lemmas in the future 
   S->nLemmas = 0;        // Reset the number of lemmas
 
   int i;
@@ -301,7 +295,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = 5000;         // Initial maximum number of learnt clauses  //2000 default
+  S->maxLemmas = MAX_LEMMAS;         // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
 
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
@@ -408,6 +402,7 @@ int parse(struct solver *S, char *filename)
   return SAT;
 } // Return that no conflict was observed
 #else
+extern int conflicts;
 void unassign(struct solver *S, int lit) { S->falses[lit] = 0; } // Unassign the literal
 
 void restart(struct solver *S)
@@ -465,11 +460,7 @@ int __mram_ptr* addClause(struct solver *S, int __mram_ptr* in, int size, int ir
 
 void reduceDB(struct solver *S, int k)
 { // Removes "less useful" lemmas from DB
-  //printf("c reducing %d=>", S->nLemmas);
-  while (S->nLemmas > S->maxLemmas)
-    S->maxLemmas += 300; // Allow more lemmas in the future 
   S->nLemmas = 0;        // Reset the number of lemmas
-
   int i;
   for (i = -S->nVars; i <= S->nVars; i++)
   { // Loop over the variables
@@ -588,7 +579,6 @@ build:;
 } // Add new conflict clause to redundant DB
 int solve(struct solver *S,int stop_it)
 { // Determine satisfiability
-  int restarts = 0;
   int decision = S->head;
   S->res = 0; // Initialize the solver
   for (int i = 0; i < stop_it ; i++)
@@ -610,7 +600,7 @@ int solve(struct solver *S,int stop_it)
         S->fast = (S->slow / 100) * 125; // 125
         restart(S); // Restart and update the averages
         if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, 6); 
+          reduceDB(S, REDUCE_LIMIT); 
       }
     } // Reduce the DB when it contains too many lemmas
 
@@ -690,18 +680,18 @@ void assign_decision(struct solver *S, int lit)
   S->reason[abs(lit)] = END;          // Set the reason as undefined ( different from 0 ).
   S->model[abs(lit)] = (lit > 0);
 }
-int solve_portfolio(struct solver *S,int restart_p,int stop_it,float factor,int thresh_hold)
+int solve_portfolio(struct solver *S,int restart_p,int stop_it,int thresh_hold)
 { // Determine satisfiability
   switch (restart_p)
   {
   case DEFAULT:
     return solve(S,stop_it);
     break;
-  case GEOMETRIC:
-    return solve_geometric(S,stop_it,factor,thresh_hold);
-    break;
   case FIXED:
     return solve_fixed(S,stop_it,thresh_hold);
+    break;
+  case RANDOM:
+    return solve_random(S,stop_it);
     break;
   default:
     return solve(S,stop_it);
@@ -715,7 +705,6 @@ int solve_luby(struct solver* S,int stop_it)
 int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_thresh_hold)
 {
   float restart_threshold = (float)min_thresh_hold;
-  int conflicts = 0;
   int decision = S->head;
 
   S->res = 0;
@@ -737,7 +726,7 @@ int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_
         restart(S);
         if (S->nLemmas > S->maxLemmas)
         {
-            reduceDB(S, 6);
+            reduceDB(S, REDUCE_LIMIT);
         }
       }
     }
@@ -760,7 +749,6 @@ int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_
 }
 int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
   int restart_threshold = fixed_thresh_hold;
-  int conflicts = 0;
   int decision = S->head;
 
   S->res = 0;
@@ -780,7 +768,7 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
         conflicts = 0;
         restart(S);
         if (S->nLemmas > S->maxLemmas) {
-          reduceDB(S, 6);
+          reduceDB(S, REDUCE_LIMIT);
         }
       }
     }
@@ -799,9 +787,62 @@ int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold) {
     decision = abs(decision);
     S->reason[decision] = 0;
   }
-
   return STOPPED;
 }
+#define A 1103515245
+#define C 12345
+#define M 2147483647
+extern uint32_t seed;
+// Function to generate a pseudorandom number using LCG
+unsigned int lcg() {
+  seed = (A * seed + C) % M;
+  return seed;
+}
+
+int solve_random(struct solver* S, int stop_it) {
+  int restart_threshold = lcg() % 2000 + 10; 
+  int decision = S->head;
+  S->res = 0;
+
+  for (int i = 0; i < stop_it ; i++) {
+    int old_nLemmas = S->nLemmas;
+
+    if (propagate(S) == UNSAT) {
+      return UNSAT;
+    }
+
+    if (S->nLemmas > old_nLemmas) {
+      decision = S->head;
+      conflicts++;
+      if (conflicts >= restart_threshold) {
+        S->res = 0;
+        conflicts = 0;
+        restart(S);
+        if (S->nLemmas > S->maxLemmas) {
+          reduceDB(S, REDUCE_LIMIT);
+        }
+        // Update the restart threshold to a random number between 1 and 100
+        restart_threshold = lcg() % 2000 + 10;
+      }
+    }
+
+    while (S->falses[decision] || S->falses[-decision]) {
+      decision = S->prev[decision];
+    }
+
+    if (decision == 0) {
+      return SAT;
+    }
+
+    decision = S->model[decision] ? decision : -decision;
+    S->falses[-decision] = 1;
+    *(S->assigned++) = -decision;
+    decision = abs(decision);
+    S->reason[decision] = 0;
+  }
+  return STOPPED;
+}
+
 #endif // DPU
 // FOR BOTH HOST AND DPU
 

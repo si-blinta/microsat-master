@@ -7,9 +7,9 @@
 */
 __host int dpu_DB_offsets[11];
 __host int dpu_vars[11];
-__host int learnt_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
+/*__host int learnt_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
 __host int dpu_mem_used;
-__host int dpu_old_mem_used;
+__host int dpu_old_mem_used;*/
 
 /**
  * RETURN VALUE
@@ -55,21 +55,56 @@ int first;
 */
 __host int dpu_iterations;
 struct solver dpu_solver;
+
+//Extern
+int conflicts;
+uint32_t seed;
 int main()
 {
-
+  seed = dpu_args.seed;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
     first = 1;
   }
-  dpu_old_mem_used = dpu_solver.mem_used;
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.factor,dpu_args.min_thresh_hold);
-  dpu_mem_used = dpu_solver.mem_used;
+  show_solver_info_debug(dpu_solver);
+  dpu_ret = solve(&dpu_solver,1);
   if(dpu_ret == SAT)
   {
-    printf("SOLVED using %d\n",dpu_args.restart_policy);
+    printf("[DPU] SOLVED using ");
+    switch (dpu_args.restart_policy)
+    {
+    case FIXED:
+       printf("FIXED RESTART\n");
+      break;
+    case DEFAULT:
+       printf("DEFAULT RESTART\n");
+      break; 
+    case RANDOM:
+       printf("RANDOM RESTART\n");
+      break; 
+    default:
+      break;
+    }
     show_result(dpu_solver);
+  }
+  if(dpu_ret == UNSAT)
+  {
+    printf("[DPU] SOLVED using ");
+    switch (dpu_args.restart_policy)
+    {
+    case FIXED:
+       printf("FIXED RESTART\n");
+      break;
+    case DEFAULT:
+       printf("DEFAULT RESTART\n");
+      break;
+    case RANDOM:
+       printf("RANDOM RESTART\n");
+      break;  
+    default:
+      break;
+    }
   }
 
 }
