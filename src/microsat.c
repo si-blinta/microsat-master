@@ -433,7 +433,7 @@ int __mram_ptr* getMemory(struct solver *S, int mem_size)
   if (S->mem_used > MEM_MAX - mem_size)
   { // In case the code is used within a code base    
     printf("c out of memory | mem used %d|mem wanted to allocate %d\n", S->mem_used, mem_size);
-    exit(1);
+    halt();
   }
   int __mram_ptr* store = (S->DB + S->mem_used); // Compute a pointer to the new memory location
   S->mem_used += mem_size;            // Update the size of the used memory
