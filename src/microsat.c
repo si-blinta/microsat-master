@@ -628,7 +628,7 @@ int propagate(struct solver *S)
   {                              // While unprocessed false literals
     int lit = *(S->processed++); // Get first unprocessed literal
     int __mram_ptr* watch = &S->first[lit]; // Obtain the first watch pointer
-    while (*watch != END)
+    while (*watch != END && *watch > 0)
     {                                     // While there are watched clauses (watched by lit)
       int i, unit = 1;                    // Let's assume that the clause is unit
       int __mram_ptr* clause = (S->DB + *watch + 1); // Get the clause from DB

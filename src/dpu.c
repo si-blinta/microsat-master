@@ -2,11 +2,6 @@
 #include "microsat.h"   
 #include "utils.h"
 #include "mram.h"
-#include <mutex.h>
-#include <barrier.h>
-#include <defs.h>
-MUTEX_INIT(mutex);
-BARRIER_INIT(barrier,2);
 /**
  * SOLVER DATA TRANSFER
 */
@@ -27,8 +22,8 @@ __host int dpu_ret = STOPPED;
 __host portfolio_args dpu_args;
 void populate_solver_context(struct solver *dpu_solver)
 {                     
-  dpu_solver->DB = DPU_MRAM_HEAP_POINTER + (me()*MEM_MAX*sizeof(int));
-  printf("id %d | DB + %d\n",me(),me()*MEM_MAX*sizeof(int));
+  dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
+  //printf("id %d | DB + %d\n",me(),me()*MEM_MAX*sizeof(int));
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
@@ -55,7 +50,7 @@ void populate_solver_context(struct solver *dpu_solver)
 /**
  * Initialization flag
 */
-int first;
+int first = 0;
 /**
  * Iterations
 */
@@ -64,23 +59,19 @@ __host int dpu_iterations;
 //Extern
 int conflicts;
 uint32_t seed;
+struct solver dpu_solver;
 int main()
 {
-  int tasklet_ret = STOPPED;
-  struct solver dpu_solver;
   seed = dpu_args.seed;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
-    barrier_wait(&barrier);
     first = 1;
   }
-  tasklet_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
-  if(tasklet_ret == SAT)
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
+  if(dpu_ret == SAT)
   {
-    mutex_lock(mutex);
-    dpu_ret = SAT;
-    printf("[DPU] SOLVED by tasklet %d using ",me());
+    printf("[DPU] SOLVED using ");
     switch (dpu_args.restart_policy)
     {
     case FIXED:
@@ -96,14 +87,11 @@ int main()
       break;
     }
     show_result(dpu_solver);
-    mutex_unlock(mutex);
     return SAT;
   }
-  if(tasklet_ret == UNSAT)
-  {
-    mutex_lock(mutex);
-    dpu_ret = UNSAT;
-    printf("[DPU] SOLVED by tasklet %d using ",me());
+  if(dpu_ret == UNSAT)
+  { 
+    printf("[DPU] SOLVED using ");
     switch (dpu_args.restart_policy)
     {
     case FIXED:
@@ -118,7 +106,6 @@ int main()
     default:
       break;
     }
-    mutex_unlock(mutex);
     return UNSAT;
   }
 }

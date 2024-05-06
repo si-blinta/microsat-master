@@ -183,11 +183,6 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
 } 
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 {
-#ifdef LEARNING_CLAUSE
-  int learnt_clauses[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
-  int learnt_clauses_sizes[MAX_LEARNT_CLAUSES];
-  int learnt_clause_count = 0;
-#endif //LEARNING_CLAUSE
   struct dpu_set_t dpu;
   portfolio_args args;
   struct solver dpu_solver;
@@ -206,10 +201,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   log_message(LOG_LEVEL_INFO,"Broadcasting");
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
-  for(int tasklet_id = 0; tasklet_id < 10 ; tasklet_id++)
-  {
-    DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,(MEM_MAX*sizeof(int))*tasklet_id,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
-  }
+  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
   free(dpu_solver.DB);
   DPU_FOREACH(set,dpu)
   {
@@ -231,50 +223,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
     DPU_FOREACH(set,dpu)
     { 
       DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
-      if(dpu_ret== STOPPED)
-      {
-#ifdef LEARNING_CLAUSE
-        //log_message(LOG_LEVEL_INFO,"STOPPED");
-        //Share learned clauses
-        int mem_used, old_mem_used;
-        DPU_ASSERT(dpu_copy_from(dpu,"dpu_mem_used",0,&mem_used,sizeof(int)));
-        DPU_ASSERT(dpu_copy_from(dpu,"dpu_old_mem_used",0,&old_mem_used,sizeof(int)));
-        if(mem_used - old_mem_used > 0)
-        { 
-          int clauses_buffer[1024] = {0};
-          DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,rounddown(old_mem_used,8)*sizeof(int),clauses_buffer,1024*sizeof(int)));
-          int start = old_mem_used - rounddown(old_mem_used,8);
-          int i = start;
-          printf("%d \n\n",start);
-          for(int i = 0; i < 1024-start;i++)
-                printf("%d ",clauses_buffer[i]);
-              printf("\n");
-          while (i < 1024-start) 
-          {
-            i += 2; // Move to the next element after the watch pointers
-            int clause_size = 0;
-            while (i < 1024-start && clauses_buffer[i+start] != 0)
-            {
-              clause_size++;
-              i++;
-            }
-            if (clauses_buffer[i+start] == 0 && learnt_clause_count < MAX_LEARNT_CLAUSES && clause_size < MAX_CLAUSE_SIZE) 
-            {
-              // Copy the learned clause to the array
-              memcpy(learnt_clauses[learnt_clause_count], (clauses_buffer + start + i - clause_size), clause_size * sizeof(int));
-              learnt_clauses_sizes[learnt_clause_count] = clause_size;
-              printf("learned a clause : size %d \n",clause_size);
-              for(int i = 0; i < learnt_clauses_sizes[learnt_clause_count];i++)
-                printf("%d ",learnt_clauses[learnt_clause_count][i]);
-              printf("\n");
-              learnt_clause_count++; // Increment the total count of learned clauses
-            }
-          i++;
-          }
-      }
-#endif // LEARNING_CLAUSE
-      }
-      else if(dpu_ret == SAT)
+      if(dpu_ret == SAT)
       {
         log_message(LOG_LEVEL_INFO,"DPU SAT");
         dpu_log_read(dpu,stdout);
