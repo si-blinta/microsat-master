@@ -28,6 +28,7 @@
         "algorithm": "c",
         "log.h": "c",
         "float.h": "c",
-        "utils.h": "c"
+        "utils.h": "c",
+        "mutex.h": "c"
     }
 }

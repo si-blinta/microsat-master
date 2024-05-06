@@ -2,6 +2,11 @@
 #include "microsat.h"   
 #include "utils.h"
 #include "mram.h"
+#include <mutex.h>
+#include <barrier.h>
+#include <defs.h>
+MUTEX_INIT(mutex);
+BARRIER_INIT(barrier,2);
 /**
  * SOLVER DATA TRANSFER
 */
@@ -14,7 +19,7 @@ __host int dpu_old_mem_used;*/
 /**
  * RETURN VALUE
 */
-__host int dpu_ret;
+__host int dpu_ret = STOPPED;
 
 /**
  * PORTFOLIO ARGS
@@ -22,7 +27,8 @@ __host int dpu_ret;
 __host portfolio_args dpu_args;
 void populate_solver_context(struct solver *dpu_solver)
 {                     
-  dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
+  dpu_solver->DB = DPU_MRAM_HEAP_POINTER + (me()*MEM_MAX*sizeof(int));
+  printf("id %d | DB + %d\n",me(),me()*MEM_MAX*sizeof(int));
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
@@ -54,24 +60,27 @@ int first;
  * Iterations
 */
 __host int dpu_iterations;
-struct solver dpu_solver;
 
 //Extern
 int conflicts;
 uint32_t seed;
 int main()
 {
-
+  int tasklet_ret = STOPPED;
+  struct solver dpu_solver;
   seed = dpu_args.seed;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
+    barrier_wait(&barrier);
     first = 1;
   }
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
-  if(dpu_ret == SAT)
+  tasklet_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
+  if(tasklet_ret == SAT)
   {
-    printf("[DPU] SOLVED using ");
+    mutex_lock(mutex);
+    dpu_ret = SAT;
+    printf("[DPU] SOLVED by tasklet %d using ",me());
     switch (dpu_args.restart_policy)
     {
     case FIXED:
@@ -87,10 +96,14 @@ int main()
       break;
     }
     show_result(dpu_solver);
+    mutex_unlock(mutex);
+    return SAT;
   }
-  if(dpu_ret == UNSAT)
+  if(tasklet_ret == UNSAT)
   {
-    printf("[DPU] SOLVED using ");
+    mutex_lock(mutex);
+    dpu_ret = UNSAT;
+    printf("[DPU] SOLVED by tasklet %d using ",me());
     switch (dpu_args.restart_policy)
     {
     case FIXED:
@@ -105,8 +118,9 @@ int main()
     default:
       break;
     }
+    mutex_unlock(mutex);
+    return UNSAT;
   }
-
 }
 /**
  * DIVIDE AND CONQUER

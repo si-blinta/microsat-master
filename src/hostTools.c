@@ -206,7 +206,10 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   log_message(LOG_LEVEL_INFO,"Broadcasting");
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
+  for(int tasklet_id = 0; tasklet_id < 10 ; tasklet_id++)
+  {
+    DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,(MEM_MAX*sizeof(int))*tasklet_id,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
+  }
   free(dpu_solver.DB);
   DPU_FOREACH(set,dpu)
   {

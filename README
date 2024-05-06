@@ -42,3 +42,20 @@ TODO :
     - ALSO APPLY PORTFOLIO
     - MANAGE THE MRAM BROADCAST : NOW WE SEND MEM MAX INSTEAD OF JUST MEMORY USED HUH 
     - CLEAN THE CODE . 
+
+Dimanche 5 mai : 
+    - Use Halt() and catch it for a sat or unsat: ( improve complexity )
+    - Use a data structure to launch kernels dpu_args_t 
+    - Add portfolio on tasklets to improve performance.
+    - Try to share clauses.
+
+Lundi 6 mai :
+    - Look for intresting DIMACS.
+    - Write a test script to run all DIMACS files and write the nb DPU/ms for each DIMACS.
+    - Tests with sharing clauses / without.
+
+Mardi 7 mai :
+    - Add a config file for full debug / normal / competetion
+    - Read the article of paraSatz ( mr utard et mr li).
+    - Start expermenting divide and conquer.  
+
