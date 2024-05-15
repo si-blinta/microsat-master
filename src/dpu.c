@@ -55,6 +55,8 @@ int first = 0;
  * Iterations
 */
 __host int dpu_iterations;
+int relaunch;
+__host int dpu_id; 
 
 //Extern
 int conflicts;
@@ -62,52 +64,33 @@ uint32_t seed;
 struct solver dpu_solver;
 int main()
 {
-  seed = dpu_args.seed;
+  //printf("relaunch flag %d\n",relaunch);
+  if(relaunch == NO_RELAUNCH)
+  {
+    return 0;
+  }
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
+      for (int j = 0; j < 10; j++) 
+  {
+    assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+  }
     first = 1;
   }
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
-  if(dpu_ret == SAT)
+  dpu_ret = solve(&dpu_solver,100);
+  if(dpu_ret == SAT )
   {
-    printf("[DPU] SOLVED using ");
-    switch (dpu_args.restart_policy)
-    {
-    case FIXED:
-       printf("FIXED RESTART\n");
-      break;
-    case DEFAULT:
-       printf("DEFAULT RESTART\n");
-      break; 
-    case RANDOM:
-       printf("RANDOM RESTART\n");
-      break; 
-    default:
-      break;
-    }
     show_result(dpu_solver);
-    return SAT;
   }
-  if(dpu_ret == UNSAT)
-  { 
-    printf("[DPU] SOLVED using ");
-    switch (dpu_args.restart_policy)
-    {
-    case FIXED:
-       printf("FIXED RESTART\n");
-      break;
-    case DEFAULT:
-       printf("DEFAULT RESTART\n");
-      break;
-    case RANDOM:
-       printf("RANDOM RESTART\n");
-      break;  
-    default:
-      break;
-    }
-    return UNSAT;
+  if(dpu_ret == UNSAT )
+  {
+    relaunch = NO_RELAUNCH;
+    reset_solver(&dpu_solver);
+    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
+
 }
 /**
  * DIVIDE AND CONQUER
@@ -163,33 +146,54 @@ __mram_noinit int tmp[MAX_CLAUSE_SIZE];*/
   }
 #endif
 */
-/**
- * DIVIDE CONQUER 
- *  struct solver dpu_solver;
   
-  //printf("relaunch flag %d\n",relaunch);
-  if(relaunch == NO_RELAUNCH)
-  {
-    return 0;
-  }
+  
+
+/** PURE PORTFOLIO
+ * seed = dpu_args.seed;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
-      for (int j = 0; j < 10; j++) 
-  {
-    assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    first = 1;
   }
-  }
-  dpu_ret = solve(&dpu_solver,10);
-  if(dpu_ret == SAT )
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
+  if(dpu_ret == SAT)
   {
+    printf("[DPU] SOLVED using ");
+    switch (dpu_args.restart_policy)
+    {
+    case FIXED:
+       printf("FIXED RESTART\n");
+      break;
+    case DEFAULT:
+       printf("DEFAULT RESTART\n");
+      break; 
+    case RANDOM:
+       printf("RANDOM RESTART\n");
+      break; 
+    default:
+      break;
+    }
     show_result(dpu_solver);
+    return SAT;
   }
-  if(dpu_ret == UNSAT )
-  {
-    relaunch = NO_RELAUNCH;
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+  if(dpu_ret == UNSAT)
+  { 
+    printf("[DPU] SOLVED using ");
+    switch (dpu_args.restart_policy)
+    {
+    case FIXED:
+       printf("FIXED RESTART\n");
+      break;
+    case DEFAULT:
+       printf("DEFAULT RESTART\n");
+      break;
+    case RANDOM:
+       printf("RANDOM RESTART\n");
+      break;  
+    default:
+      break;
+    }
+    return UNSAT;
   }
-  first++;
 */

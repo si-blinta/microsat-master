@@ -104,7 +104,7 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
     }
   }
 }
-void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
+void HOST_TOOLS_divide_and_conquer_old(char* filename, struct dpu_set_t set)
 { 
   dpu_cntx states[NB_DPU];
   int id = 0;
@@ -243,7 +243,75 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
   log_message(LOG_LEVEL_INFO,"DPU %lf ms",duration);
 }
-
+void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
+{ 
+  assignement_t assignements[10];
+  assignement_t temp;
+  int id = 0;
+  struct dpu_set_t dpu;
+  struct solver dpu_solver,model;
+  int ret = parse(&dpu_solver,filename);
+  initCDCL(&model,dpu_solver.nVars,dpu_solver.nClauses);
+  if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
+    exit(0);
+  }
+  log_message(LOG_LEVEL_INFO,"parsing finished");
+  int dpu_ret = UNSAT;
+  int unsat_cpt = 0;
+  int sat = 0;
+  int offsets[11];int vars[11];
+  populate_offsets(offsets,dpu_solver);
+  populate_vars(vars,dpu_solver);
+  log_message(LOG_LEVEL_INFO,"Broadcasting");
+  HOST_TOOLS_send_id(set);
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
+  clock_t start,end;
+  double duration;
+  start = clock();
+  while(unsat_cpt < NB_DPU && !sat)
+  {
+    id = 0;
+    unsat_cpt = 0;
+    sat = 0;
+    log_message(LOG_LEVEL_INFO,"Launching");
+    DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
+    
+    DPU_FOREACH(set,dpu,id)
+    { 
+      DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
+      if(dpu_ret == SAT)
+      {
+        log_message(LOG_LEVEL_INFO,"DPU SAT");
+        dpu_log_read(dpu,stdout);
+        sat = 1;
+        break;
+      }
+      if(dpu_ret== STOPPED)
+      {
+        //log_message(LOG_LEVEL_INFO,"STOPPED");
+        // Add the current assignements to the queue : 
+        /**
+         * dpu_copy_from the assignements, ( in dpu side : get_assigned_lits )
+         * store those assignments in assignement_t structure.
+         * add it to the assignement_queue_t.
+        */
+      }
+      if(dpu_ret == UNSAT)
+      {
+        unsat_cpt++;
+      }
+    }
+}
+  end = clock();
+  duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
+  printf("DPU %lf ms\n",duration);
+  if(!sat)
+  log_message(LOG_LEVEL_INFO,"DPU UNSAT");
+} 
 /**
  * #if SHARING
        //Add learned clauses.

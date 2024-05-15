@@ -88,7 +88,9 @@ void assign_decision (struct solver* S, int lit);
 void unassign_last_decision(struct solver *S);
 int get_unassigned(struct solver S);
 void picosat_proof(struct solver S);
+void unassign_all(struct solver *S);
 #else
+void reset_solver(struct solver *S);
 void unassign(struct solver *S, int lit);
 void restart(struct solver *S);
 void assign(struct solver *S, int __mram_ptr* reason, int forced);

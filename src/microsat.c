@@ -849,7 +849,21 @@ int solve_random(struct solver* S, int stop_it) {
 void unassign_last_decision(struct solver *S) 
 {
   int lit = *(--S->assigned);
-  unassign(S,lit);
+  if(S->falses[lit] != IMPLIED)
+    unassign(S,lit);
+}
+void unassign_all(struct solver *S)
+{
+  while(S->assigned != S->falseStack)
+  {
+    unassign_last_decision(S);
+  }
+} 
+
+void reset_solver(struct solver *S)
+{
+  unassign_all(S);
+  restart(S);
 }
 
 int get_unassigned(struct solver S)
