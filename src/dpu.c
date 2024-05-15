@@ -2,6 +2,7 @@
 #include "microsat.h"   
 #include "utils.h"
 #include "mram.h"
+#include "divide_conquer.h"
 /**
  * SOLVER DATA TRANSFER
 */
@@ -57,6 +58,7 @@ int first = 0;
 __host int dpu_iterations;
 int relaunch;
 __host int dpu_id; 
+__host assignement_t assignement;
 
 //Extern
 int conflicts;
@@ -90,6 +92,13 @@ int main()
     reset_solver(&dpu_solver);
     //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
   }
+  /**
+   * Here else 
+   * get assigned lits;
+   * store it in assignement_t 
+   * get unassigned lits
+   * store it in another assignement_t 
+  */
 
 }
 /**

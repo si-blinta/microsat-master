@@ -297,7 +297,17 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
         /**
          * dpu_copy_from the assignements, ( in dpu side : get_assigned_lits )
          * store those assignments in assignement_t structure.
-         * add it to the assignement_queue_t.
+         * now dpu copy from the unassigned lits ( in dpu side : get_unassigned_lits)
+         * store those assignments in assignement_t structure.
+         * assigned[MAX] | unassigned[MAX]
+         * now generate a task :
+         *  send the assigned[MAX] to dpus, so they can have the same starting point.
+         *  chose 10 lits from unassigned[MAX], send them to the dpus.
+         *  each dpu will have different value for these 10 lits.
+         *  
+         *  remove the 10 lits from our unassigned[MAX].
+         *  restart again.
+         * 
         */
       }
       if(dpu_ret == UNSAT)
