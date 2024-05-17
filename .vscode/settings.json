@@ -29,6 +29,7 @@
         "log.h": "c",
         "float.h": "c",
         "utils.h": "c",
-        "mutex.h": "c"
+        "mutex.h": "c",
+        "divide_conquer.h": "c"
     }
 }

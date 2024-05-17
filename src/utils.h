@@ -8,8 +8,9 @@ typedef struct
 }portfolio_args;
 typedef struct
 {
-
-}config_t;
+    int* lits;
+    int size;
+}lit_assignement;
 
 
 

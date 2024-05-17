@@ -19,7 +19,7 @@ enum
   STOPPED=3,
   MARK = 2,
   IMPLIED = 6,
-  MEM_MAX = 15000000/10,
+  MEM_MAX = 15000000,
   NO_RELAUNCH = 99
 }; // 64 Kbytes is maximum memory that a dpu can allocate.(to modify)
 enum
@@ -89,6 +89,8 @@ void unassign_last_decision(struct solver *S);
 int get_unassigned(struct solver S);
 void picosat_proof(struct solver S);
 void unassign_all(struct solver *S);
+int* get_unassigned_lits(struct solver S,int *size);
+int* get_assigned_lits(struct solver S, int* size);
 #else
 void reset_solver(struct solver *S);
 void unassign(struct solver *S, int lit);
@@ -116,4 +118,6 @@ void picosat_proof(struct solver S);
 int solve_portfolio(struct solver *S,int restart_p,int stop_it,int thresh_hold);
 int solve_random(struct solver* S, int stop_it);
 #endif // DPU 
+void reset_solver(struct solver *S);
+int* get_reasons(struct solver S);
 #endif

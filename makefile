@@ -16,7 +16,7 @@ dpu: src/dpu.c src/microsat.c src/utils.c
 	@$(DPU-CC) -DNR_TASKLETS=$(NB_TASKLETS) -DDPU -o bin/dpu src/dpu.c src/microsat.c src/utils.c
 	@echo "Compiled DPU with $(NB_TASKLETS) Tasklets"
 
-host: src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c
-	@$(HOST-CC) $(HOST-CFLAGS) -g src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c -o bin/host $(HOST-LIBS)
+host: src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c src/divide_conquer.c
+	@$(HOST-CC) $(HOST-CFLAGS) -g src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c src/divide_conquer.c -o bin/host $(HOST-LIBS)
 	@echo "Compiled HOST"
 	

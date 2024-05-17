@@ -401,6 +401,45 @@ int parse(struct solver *S, char *filename)
     pclose(input); // Close the formula pipe
   return SAT;
 } // Return that no conflict was observed
+int* get_unassigned_lits(struct solver S,int *size)
+{
+  int* lits = malloc(S.nVars*sizeof(int));
+  int j = 0;
+  for(int i = 1 ; i < S.nVars; i++)
+  {
+    if(S.falses[i] == 0 && S.falses[-i] == 0)
+    {
+      lits[j] = i;
+      j++;
+    }
+  }
+  *size = j;
+  return lits;
+}
+int* get_assigned_lits(struct solver S, int* size)
+{
+  int* lits = malloc(S.nVars*sizeof(int));
+  int j = 0;
+  for(int i = 1 ; i < S.nVars; i++)
+  {
+    if(S.falses[i] != 0 || S.falses[-i] != 0)
+    {
+      if(S.falses[i] != 0)
+        lits[j] = i;
+      else
+        lits[j] = -i;
+      j++;
+    }
+  }
+  *size = j;
+  return lits;
+}
+int* get_reasons(struct solver S)
+{
+  int* reasons = malloc((S.nVars+1)*sizeof(int));
+  memcpy(reasons,S.reason,(S.nVars+1)*sizeof(int));
+  return reasons;
+}
 #else
 extern int conflicts;
 void unassign(struct solver *S, int lit) { S->falses[lit] = 0; } // Unassign the literal
@@ -863,7 +902,7 @@ void unassign_all(struct solver *S)
 void reset_solver(struct solver *S)
 {
   unassign_all(S);
-  restart(S);
+  //restart(S);
 }
 
 int get_unassigned(struct solver S)

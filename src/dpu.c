@@ -51,14 +51,15 @@ void populate_solver_context(struct solver *dpu_solver)
 /**
  * Initialization flag
 */
-int first = 0;
+int first ;
 /**
  * Iterations
 */
 __host int dpu_iterations;
-int relaunch;
 __host int dpu_id; 
-__host assignement_t assignement;
+__host int dpu_to_assign[MAX_ASSIGNMENT_SIZE];
+__host int dpu_to_assign_size;
+__host int mem_used;
 
 //Extern
 int conflicts;
@@ -67,31 +68,51 @@ struct solver dpu_solver;
 int main()
 {
   //printf("relaunch flag %d\n",relaunch);
-  if(relaunch == NO_RELAUNCH)
-  {
-    return 0;
-  }
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
-      for (int j = 0; j < 10; j++) 
-  {
-    assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-  }
+    for (int j = 0; j < 10; j++) 
+    {
+      assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+      //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    }
     first = 1;
   }
-  dpu_ret = solve(&dpu_solver,100);
+  else
+  {
+    //load another solver :
+    // assign decisions
+    
+    
+    //reset
+    //assign new starting point
+    //assign new 
+    /*reset_solver(&dpu_solver);
+    for (int j = 0; j < dpu_assign_size; j++) 
+    {
+      assign_decision(&dpu_solver,dpu_assigns[j]);
+      printf("%d ",dpu_assigns[j]);
+    }
+    printf("\n");
+    printf("%d\n",dpu_assign_size);*/
+    /*if(dpu_to_assign_size > 10)
+      dpu_to_assign_size = 10;
+    for(int j = 0 ; j < dpu_to_assign_size; j++)
+    {
+      assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
+      printf("%d ",(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
+    }
+    //printf("\n");
+    //show_solver_info_debug(dpu_solver);*/
+  }
+  dpu_ret = solve(&dpu_solver,10);
+  mem_used=dpu_solver.mem_used;
   if(dpu_ret == SAT )
   {
-    show_result(dpu_solver);
+    //show_result(dpu_solver);
   }
-  if(dpu_ret == UNSAT )
-  {
+  /*if(dpu_ret == UNSAT)
     relaunch = NO_RELAUNCH;
-    reset_solver(&dpu_solver);
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-  }
   /**
    * Here else 
    * get assigned lits;
