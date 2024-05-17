@@ -245,15 +245,17 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 }
 void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
 {
-
+    solver_queue_t solver_queue;
     assignment_queue_t unassigned_queue;
+    vars_offsets_queue_t vars_offsets;
     init_queue(&unassigned_queue);
-    
+    init_solver_queue(&solver_queue);
+    init_vars_offsets_queue(&vars_offsets);
     int id = 0;
     struct dpu_set_t dpu;
     struct solver dpu_solver;
     
-    // Parse the input file and check for UNSAT
+
     int ret = parse(&dpu_solver, filename);
     if (ret == UNSAT) {
         log_message(LOG_LEVEL_INFO, "Parsing resulted in UNSAT");
@@ -277,22 +279,22 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
     DPU_ASSERT(dpu_broadcast_to(set, "dpu_DB_offsets", 0, offsets, 11 * sizeof(int), DPU_XFER_DEFAULT));
     DPU_ASSERT(dpu_broadcast_to(set, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver.DB, roundup(dpu_solver.mem_used, 8) * sizeof(int), DPU_XFER_DEFAULT));
     
-    int* lits = malloc(sizeof(int) * 2 * dpu_solver.nVars);
     
     clock_t start, end;
     double duration;
     start = clock();
     
     int x = 0;
-    while (unsat_cpt < NB_DPU && !sat) {
-        int flag = 0;
+    while (!sat) {
         id = 0;
         unsat_cpt = 0;
+        int stopped_cpt = 0;
         sat = 0;
         
         log_message(LOG_LEVEL_INFO, "Launching DPUs");
         DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
         DPU_FOREACH(set, dpu, id) {
+            //dpu_log_read(dpu,stdout);
             DPU_ASSERT(dpu_copy_from(dpu, "dpu_ret", 0, &dpu_ret, sizeof(int)));
             if (dpu_ret == SAT) {
                 log_message(LOG_LEVEL_INFO, "DPU found SAT");
@@ -300,17 +302,19 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
                 sat = 1;
                 break;
             }
-            if (dpu_ret == STOPPED && flag == 0) {
+            if (dpu_ret == STOPPED) {
                 
-                DPU_ASSERT(dpu_copy_from(dpu, "mem_used", 0, &dpu_solver.mem_used, sizeof(int)));
                 DPU_ASSERT(dpu_copy_from(dpu, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver.DB, roundup(dpu_solver.mem_used, 8) * sizeof(int)));
-                
+                DPU_ASSERT(dpu_copy_from(dpu, "dpu_DB_offsets", 0, offsets, 11*sizeof(int)));
+                DPU_ASSERT(dpu_copy_from(dpu, "dpu_vars", 0, vars, 11*sizeof(int)));
                 int unassigned_size;
                 int* unassigned = get_unassigned_lits(dpu_solver, &unassigned_size);
                 enqueue(&unassigned_queue, unassigned, unassigned_size);
-                //print_queue(&unassigned_queue);
+                enqueue_vars_offsets_queue(&vars_offsets,vars,offsets);
+                assert(dpu_solver.mem_used <= DB_SIZE);
+                enqueue_solver_queue(&solver_queue,dpu_solver.DB,dpu_solver.mem_used);
                 free(unassigned);
-                flag = 1;
+                stopped_cpt++;
             }
             if (dpu_ret == UNSAT) {
                 unsat_cpt++;
@@ -318,21 +322,24 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
         }
         
         log_message(LOG_LEVEL_INFO, "DPU execution completed, handling results");
-        printf("unsat_cpt: %d\n", unsat_cpt);
+        log_message(LOG_LEVEL_DEBUG,"unsat_cpt: %d\n", unsat_cpt);
+        log_message(LOG_LEVEL_DEBUG,"stopped_cpt: %d\n", stopped_cpt);
         
         if (unsat_cpt >= NB_DPU) {
             log_message(LOG_LEVEL_INFO, "All DPUs reported UNSAT");
             break;
         }
-
         if (!is_empty(&unassigned_queue)) {
             int* to_assign = malloc(sizeof(int) * unassigned_queue.sizes[unassigned_queue.head]);
             int to_assign_size;
-            
             dequeue(&unassigned_queue, to_assign, &to_assign_size);
+            dequeue_solver_queue(&solver_queue,dpu_solver.DB,&dpu_solver.mem_used);
+            dequeue_vars_offsets_queue(&vars_offsets,vars,offsets);
             DPU_ASSERT(dpu_broadcast_to(set, "dpu_to_assign", 0, to_assign, to_assign_size * sizeof(int), DPU_XFER_DEFAULT));
             DPU_ASSERT(dpu_broadcast_to(set, "dpu_to_assign_size", 0, &to_assign_size, sizeof(int), DPU_XFER_DEFAULT));
-            //DPU_ASSERT(dpu_broadcast_to(set, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver.DB, roundup(dpu_solver.mem_used, 8) * sizeof(int), DPU_XFER_DEFAULT));
+            DPU_ASSERT(dpu_broadcast_to(set, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver.DB, roundup(dpu_solver.mem_used, 8) * sizeof(int), DPU_XFER_DEFAULT));
+            DPU_ASSERT(dpu_broadcast_to(set, "dpu_vars", 0, vars, 11 * sizeof(int), DPU_XFER_DEFAULT));
+            DPU_ASSERT(dpu_broadcast_to(set, "dpu_DB_offsets", 0, offsets, 11 * sizeof(int), DPU_XFER_DEFAULT));
             free(to_assign);
         }
     }
@@ -346,7 +353,6 @@ void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set)
     }
     
     //print_queue(&unassigned_queue);
-    free(lits);
 }
 
 /**

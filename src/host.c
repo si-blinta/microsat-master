@@ -16,6 +16,6 @@ int main(int argc, char **argv)
   srand(time(NULL));
   //HOST_TOOLS_pure_portfolio(argv[1],set);
   HOST_TOOLS_divide_and_conquer(argv[1],set);
-   
+
 
 }
