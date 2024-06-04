@@ -6,8 +6,8 @@
 #include <stdint.h>
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
-#define REDUCE_LIMIT 2
-#define MAX_LEMMAS 2000
+#define REDUCE_LIMIT 6
+#define MAX_LEMMAS 6000
 enum
 {
   END = -9,
@@ -34,28 +34,47 @@ enum
 
 enum branching_policy
 {
-  VSIDS,
-  CHB,
-  LRB
+  BR_VSIDS,
+  BR_CHB,
+  BR_LRB,
+  BR_RANDOM
 };
 
 enum restart_policy {
-  DEFAULT,
-  FIXED,
-  RANDOM,
-  LUBY
+  REST_DEFAULT,
+  REST_ARITH,
+  REST_LUBY,
+  REST_GEO
 };
 
 enum reduce_policy
 {
-  DEFAULT
+  RED_DEFAULT
 };
+typedef struct
+{
+  enum branching_policy br_p;
+  enum restart_policy rest_p;
+  enum reduce_policy reduce_p;
+  //Variables for restart policy
+  int conflicts;
+  float geo_factor;
+  int geo_max;
+  int luby_base;
+  int luby_index;
+  int arith_reason;
+  int arith_max;
+  int decay_factor;
+  int decay_thresh_hold;
 
+}config_t;
 struct solver
 { // The variables in the struct are described in the allocate procedure
+  config_t config;
   int *DB, nVars, nClauses, mem_used, mem_fixed, maxLemmas, nLemmas, *buffer, nConflicts, *model,
       *reason, *falseStack, *falses, *first, *forced, *processed, *assigned, *next, *prev, head, res, fast, slow;
-  float *scores;
+  float *scores;//For VSIDS.
+  
 };
 void unassign(struct solver *S, int lit);
 void restart(struct solver *S);
@@ -71,6 +90,13 @@ int propagate(struct solver *S);
 int solve(struct solver *S,int stop_it);
 
 void initCDCL(struct solver *S, int n, int m);
+void set_solver_config(struct solver *S,config_t config);
+void set_solver_br(struct solver *S,enum branching_policy br);
+void set_solver_rest(struct solver *S,enum restart_policy rest);
+void set_solver_red(struct solver *S,enum reduce_policy red);
+
+
+
 static void read_until_new_line(FILE *input);
 int parse(struct solver *S, char *filename);
 
@@ -86,4 +112,10 @@ int* get_unassigned_lits(struct solver S,int *size);
 int* get_assigned_lits(struct solver S, int* size);
 void reset_solver(struct solver *S);
 int* get_reasons(struct solver S);
+void decay(struct solver *S,float factor);
+
+
+
+
+
 #endif

@@ -1,8 +1,80 @@
 #include "microsat_host.h"
 #include "log.h"
+int power(int base, int exponent) {
+    double result = 1.0;
+    for(int i = 0; i < exponent; i++) {
+        result *= base;
+    }
+    return result;
+}
+int luby(int y, int x) {
+
+    // Find the finite subsequence that contains index 'x', and the
+    // size of that subsequence:
+    int size, seq;
+    for(size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1);
+
+    while(size - 1 != x) {
+        size = (size - 1) >> 1;
+        seq--;
+        x = x % size;
+    }
+
+    return power(y, seq);
+}
+void check_and_restart(struct solver *S) {
+    int reduce_flag = 0;
+    if (S->nLemmas > S->maxLemmas)
+      reduce_flag = 1;
+    switch (S->config.rest_p) {
+        case REST_DEFAULT:
+            if (S->fast > (S->slow / 100) * 125) 
+            {
+                printf("default restart after %d conflicts\n",S->config.conflicts);
+                // Restart logic for default policy
+                S->fast = (S->slow / 100) * 125; // 125
+                restart(S); // Restart and update the averages
+                if (reduce_flag)
+                  reduceDB(S, REDUCE_LIMIT); 
+            }
+            break;
+        case REST_LUBY:
+            if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
+            {
+              printf("luby restart after %d conflicts\n",S->config.conflicts);
+              restart(S); // Restart and update the averages
+              S->config.luby_index++;
+              S->config.conflicts = 0;
+              if (reduce_flag)
+                reduceDB(S, REDUCE_LIMIT); 
+            }
+            break;
+        case REST_GEO:
+            if (S->config.conflicts >= S->config.geo_max)
+            {
+              printf("geo restart after %d conflicts\n",S->config.conflicts);
+              restart(S); // Restart and update the averages
+              S->config.geo_max *= S->config.geo_factor;
+              S->config.conflicts = 0;
+              if (reduce_flag)
+                reduceDB(S, REDUCE_LIMIT); 
+            }
+            break;
+        case REST_ARITH:
+            if (S->config.conflicts >= S->config.arith_max)
+            {
+              printf("arithmetic restart after %d conflicts\n",S->config.conflicts);
+              restart(S); // Restart and update the averages
+              S->config.arith_max += S->config.arith_reason;
+              S->config.conflicts = 0;
+              if (reduce_flag)
+                reduceDB(S, REDUCE_LIMIT); 
+            }
+            break;
+    }
+}
 int solve(struct solver *S,int stop_it)
 { // Determine satisfiability
-  int restarts = 0;
   int decision = S->head;
   S->res = 0; // Initialize the solver
   for (int i = 0; i < stop_it ; i++)
@@ -15,20 +87,18 @@ int solve(struct solver *S,int stop_it)
     
     }
     if (S->nLemmas > old_nLemmas)
-    { // If the last decision caused a conflict
+    { 
+      // If the last decision caused a conflict
       // printf("new learned clause\n");
       decision = S->head; // Reset the decision heuristic to head
-      if (S->fast > (S->slow / 100) * 125) 
-      { // If fast average is substantially larger than slow average
-        S->res = 0;
-        S->fast = (S->slow / 100) * 125; // 125
-        restart(S); // Restart and update the averages
-        restarts++;
-        if (S->nLemmas > S->maxLemmas)
-          reduceDB(S, REDUCE_LIMIT); 
+      S->config.conflicts++;
+      S->res = 0;
+      if(S->config.br_p == BR_VSIDS){
+        if(S->config.conflicts % S->config.decay_thresh_hold == 0)
+          decay(S,0.99);
       }
-    } // Reduce the DB when it contains too many lemmas
-
+      check_and_restart(S);
+    }
     while (S->falses[decision] || S->falses[-decision])
     { // As long as the temporay decision is assigned
       decision = S->prev[decision];
@@ -110,47 +180,37 @@ int *addClause(struct solver *S, int *in, int size, int irr)
   return clause;
 } // Return the pointer to the clause is the database
 
-void reduceDB(struct solver *S, int k)
-{ //printf("reduce\n");
-  // Removes "less useful" lemmas from DB
-  S->nLemmas = 0;        // Reset the number of lemmas
+void reduceDB (struct solver* S, int k) {                     // Removes "less useful" lemmas from DB
+  while (S->nLemmas > S->maxLemmas) S->maxLemmas += 300;      // Allow more lemmas in the future
+  S->nLemmas = 0;                                             // Reset the number of lemmas
 
-  int i;
-  for (i = -S->nVars; i <= S->nVars; i++)
-  { // Loop over the variables
-    if (i == 0)
-      continue;
-    int *watch = &S->first[i]; // Get the pointer to the first watched clause
-    while (*watch != END)      // As long as there are watched clauses
-      if (*watch < S->mem_fixed)
-        watch = (S->DB + *watch); // Remove the watch if it points to a lemma
-      else
-        *watch = S->DB[*watch];
-  } // Otherwise (meaning an input clause) go to next watch
+  int i; for (i = -S->nVars; i <= S->nVars; i++) {            // Loop over the variables
+    if (i == 0) continue; int* watch = &S->first[i];          // Get the pointer to the first watched clause
+    while (*watch != END)                                     // As long as there are watched clauses
+      if (*watch < S->mem_fixed) watch = (S->DB + *watch);    // Remove the watch if it points to a lemma
+      else                      *watch =  S->DB[  *watch]; }  // Otherwise (meaning an input clause) go to next watch
 
-  int old_used = S->mem_used;
-  S->mem_used = S->mem_fixed; // Virtually remove all lemmas
-  for (i = S->mem_fixed + 2; i < old_used; i += 3)
-  {                          // While the old memory contains lemmas
-    int count = 0, head = i; // Get the lemma to which the head is pointing
-    while (S->DB[i])
-    {
-      int lit = S->DB[i++]; // Count the number of literals
-      if ((lit > 0) == S->model[abs(lit)])
-        count++;
-    } // That are satisfied by the current model
-    if (count < k)
-      addClause(S, S->DB + head, i - head, 0);
+  int old_used = S->mem_used; S->mem_used = S->mem_fixed;     // Virtually remove all lemmas
+  for (i = S->mem_fixed + 2; i < old_used; i += 3) {          // While the old memory contains lemmas
+    int count = 0, head = i;                                  // Get the lemma to which the head is pointing
+    while (S->DB[i]) { int lit = S->DB[i++];                  // Count the number of literals
+      if ((lit > 0) == S->model[abs (lit)]) count++; }        // That are satisfied by the current model
+    if (count < k) addClause (S, S->DB+head, i-head, 0); } }  // If the latter is smaller than k, add it back
+
+void increment(struct solver *S,int lit)
+{
+  if (S->falses[lit] != IMPLIED)
+  {
+    S->falses[lit] = MARK; // MARK the literal as involved if not a top-level unit
+    S->scores[abs(lit)]++;
   }
-  //printf("%d\n", S->nLemmas);
-} // If the latter is smaller than k, add it back
+}
 void bump(struct solver *S, int lit)
 { // Move the variable to the front of the decision list
   if (S->falses[lit] != IMPLIED)
   {
     S->falses[lit] = MARK; // MARK the literal as involved if not a top-level unit
-    S->scores[abs(lit)]++;
-    /*int var = abs(lit);
+    int var = abs(lit);
     if (var != S->head)
     {                                       // In case var is not already the head of the list
       S->prev[S->next[var]] = S->prev[var]; // Update the prev link, and
@@ -158,7 +218,7 @@ void bump(struct solver *S, int lit)
       S->next[S->head] = var;               // Add a next link to the head, and
       S->prev[var] = S->head;
       S->head = var;
-    }*/
+    }
   }
 } // Make var the new head
 // Utility function to split the nodes of the given list into two halves.
@@ -263,8 +323,14 @@ int *analyze(struct solver *S, int *clause)
 { // Compute a resolvent from falsified clause
   S->res++;
   S->nConflicts++; // Bump restarts and update the statistic
-  while (*clause)
-    bump(S, *(clause++)); // MARK all literals in the falsified clause
+    while (*clause)
+    {
+      if(S->config.br_p == BR_CHB)
+        bump(S, *(clause++)); // MARK all literals in the falsified clause
+      if(S->config.br_p == BR_VSIDS)
+        increment(S,*(clause++));
+      //todo lrb
+    }
   while (S->reason[abs(*(--S->assigned))])
   { // Loop on variables on falseStack until the last decision
     if (S->falses[*S->assigned] == MARK)
@@ -274,12 +340,17 @@ int *analyze(struct solver *S, int *clause)
         if (!S->reason[abs(*check)])
           goto build;                                // Otherwise it is the first-UIP so break
       clause = S->DB + S->reason[abs(*S->assigned)]; // Get the reason and ignore first literal
-      while (*clause)
-        bump(S, *(clause++));
-    } // MARK all literals in reason
+    while (*clause)
+    { // is it also good for VSIDS : incrementing all the variables that are in the clause that caused a conflict ? ask sami
+      if(S->config.br_p == BR_CHB)
+        bump(S, *(clause++)); // MARK all literals in the falsified clause
+      if(S->config.br_p == BR_VSIDS)
+        increment(S,*(clause++));
+      //todo lrb
+    } 
+    } 
     unassign(S, *S->assigned);
   } // Unassign the tail of the stack
-
 build:;
   int size = 0, lbd = 0, flag = 0;     // Build conflict clause; Empty the clause buffer
   int *p = S->processed = S->assigned; // Loop from tail to front
@@ -309,8 +380,10 @@ build:;
     unassign(S, *(S->assigned--));   // Unassign all lits between tail & head
   unassign(S, *S->assigned);         // Assigned now equal to processed
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
-  sort_variables(S);
+  //sort_variables(S);
   return addClause(S, S->buffer, size, 0);
+  if(S->config.br_p == BR_VSIDS)
+    sort_variables(S);
 } // Add new conflict clause to redundant DB
 
 int propagate(struct solver *S)
@@ -377,7 +450,18 @@ void initCDCL(struct solver *S, int n, int m)
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
   S->maxLemmas = MAX_LEMMAS;         // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
-
+  S->config.br_p = BR_CHB;
+  S->config.reduce_p = RED_DEFAULT;
+  S->config.rest_p   = REST_DEFAULT;
+  S->config.conflicts = 0;
+  S->config.luby_base = 64;
+  S->config.luby_index= 0;
+  S->config.geo_factor = 1.1;
+  S->config.geo_max = 100 ;
+  S->config.arith_max = 100 ;
+  S->config.arith_reason = 500 ;
+  S->config.decay_factor = 0.99;
+  S->config.decay_thresh_hold = 1 ; // like in minisat
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
   memset(S->DB,0,MEM_MAX*sizeof(int));
   S->model = getMemory(S, n + 1);               // Full assignment of the (Boolean) variables (initially set to false)
@@ -658,4 +742,20 @@ void show_solver_stats(struct solver S)
   printf("forced    = %d\n", S.forced[0]);
   printf("buffer    = %d\n", S.buffer[0]);
   printf("model     = %d\n", S.model[0]);
+}
+void set_solver_config(struct solver *S,config_t config)
+{
+  S->config = config;
+}
+void set_solver_br(struct solver *S,enum branching_policy br)
+{
+  S->config.br_p = br;
+}
+void set_solver_rest(struct solver *S,enum restart_policy rest)
+{
+  S->config.rest_p = rest;
+}
+void set_solver_red(struct solver *S,enum reduce_policy red)
+{
+  S->config.reduce_p = red;
 }

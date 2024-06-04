@@ -3,28 +3,8 @@
 #include <stdint.h>
 #include "time.h"
 #define DPU_BINARY "bin/dpu"
-int power(int base, int exponent) {
-    double result = 1.0;
-    for(int i = 0; i < exponent; i++) {
-        result *= base;
-    }
-    return result;
-}
-int luby(int y, int x) {
-
-    // Find the finite subsequence that contains index 'x', and the
-    // size of that subsequence:
-    int size, seq;
-    for(size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1);
-
-    while(size - 1 != x) {
-        size = (size - 1) >> 1;
-        seq--;
-        x = x % size;
-    }
-
-    return power(y, seq);
-}
+int power(int base, int exponent);
+int luby(int y, int x);
 
 void print_decision_list(struct solver* S) {
     int current = S->head;
@@ -55,7 +35,7 @@ int solve_luby(struct solver* S,int stop_it,int luby_param)
       if(conflicts % decay_thresh_hold == 0)
           decay(S,0.99);
       if ( conflicts >= luby(luby_param,luby_index) ) {
-        //printf("restarted after %d conflicts\n",conflicts);
+        printf("restarted after %d conflicts\n",conflicts);
         S->res = 0;
         luby_index++;
         conflicts = 0;
@@ -90,21 +70,32 @@ int main(int argc, char **argv)
   clock_t start,end;
   double duration;
   struct solver dpu_solver;
-  start = clock();
   int ret = parse(&dpu_solver,argv[1]);
-  end = clock();
   if(ret == UNSAT)
   {
     log_message(LOG_LEVEL_INFO,"parsing UNSAT");
     exit(0);
   }
   log_message(LOG_LEVEL_INFO,"parsing finished");
-  ret = solve_luby(&dpu_solver,INT32_MAX,2);
-  //ret = solve(&dpu_solver,INT32_MAX);
+  /*set_solver_rest(&dpu_solver,REST_LUBY);
+  dpu_solver.config.luby_base = 4;*/
+  //set_solver_rest(&dpu_solver,REST_ARITH);
+  //dpu_solver.config.geo_factor = 1.1;
+  //dpu_solver.config.br_p == BR_VSIDS;
+  //dpu_solver.config.decay_thresh_hold = 5;
+  start = clock();
+  ret = solve(&dpu_solver,INT32_MAX);
+  end = clock();
+
   if(ret == SAT)
   {
     log_message(LOG_LEVEL_INFO,"SAT");
-    //show_result(dpu_solver);
+    show_result(dpu_solver);
+  }
+   if(ret == UNSAT)
+  {
+    log_message(LOG_LEVEL_INFO,"UNSAT");
+
   }
   
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
