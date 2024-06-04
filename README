@@ -75,5 +75,11 @@ TODO :
 TODO : 
     -IMPLEMENT LUBY RESTART.
     -SHARE LEARNT CLAUSE ( IMPLEMENT THE FUNCTIONS )
-    -IMPLEMENT VSIDS.
+    -IMPLEMENT VSIDS:
+        -ADDED SCORES.
+        -ADD PARAMETERS OF DECAY AND BUMP AND WHEN TO DECAY.
+        -NOW MODIFY THE BUMP FUNCTION TO ACTUALLY ORGANIZE THE DECISION ORDER BY SCORES.
+    -RESTART:
+        -USE LBD RESTART : 
+            -It consists of restarting whenever we have high lbd clauses, see ( https://univ-artois.hal.science/hal-03299473/file/preprint.pdf)
     

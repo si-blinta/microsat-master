@@ -37,13 +37,15 @@ enum
 enum restart_policy {
   DEFAULT,
   FIXED,
-  RANDOM
+  RANDOM,
+  LUBY
 };
 #ifndef DPU
 struct solver
 { // The variables in the struct are described in the allocate procedure
   int *DB, nVars, nClauses, mem_used, mem_fixed, maxLemmas, nLemmas, *buffer, nConflicts, *model,
       *reason, *falseStack, *falses, *first, *forced, *processed, *assigned, *next, *prev, head, res, fast, slow;
+  float *scores;
 };
 #else   
 struct solver
@@ -112,11 +114,11 @@ void show_result(struct solver S);
 void assign_decision (struct solver* S, int lit);
 void unassign_last_decision(struct solver *S);
 int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_thresh_hold);
-int solve_luby(struct solver* S,int stop_it);
 int solve_fixed(struct solver* S, int stop_it, int fixed_thresh_hold);
 void picosat_proof(struct solver S);
 int solve_portfolio(struct solver *S,int restart_p,int stop_it,int thresh_hold);
 int solve_random(struct solver* S, int stop_it);
+int solve_luby(struct solver* S,int stop_it,int luby_param);
 #endif // DPU 
 void reset_solver(struct solver *S);
 int* get_reasons(struct solver S);

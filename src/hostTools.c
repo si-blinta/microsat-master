@@ -205,7 +205,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   free(dpu_solver.DB);
   DPU_FOREACH(set,dpu)
   {
-    args.restart_policy  = rand() % 3;
+    args.restart_policy  = rand() % 4;
     args.min_thresh_hold = rand() % 500 + 5;
     args.seed            = rand() % NB_DPU + 1;
     //log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);

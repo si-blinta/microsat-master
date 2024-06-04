@@ -145,12 +145,16 @@ void reduceDB(struct solver *S, int k)
   }
   //printf("%d\n", S->nLemmas);
 } // If the latter is smaller than k, add it back
-
+void sort_variables(struct solver *S)
+{
+  
+}
 void bump(struct solver *S, int lit)
 { // Move the variable to the front of the decision list
   if (S->falses[lit] != IMPLIED)
   {
     S->falses[lit] = MARK; // MARK the literal as involved if not a top-level unit
+    S->scores[abs(lit)]++;
     int var = abs(lit);
     if (var != S->head)
     {                                       // In case var is not already the head of the list
@@ -301,6 +305,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
   memset(S->DB,0,MEM_MAX*sizeof(int));
   S->model = getMemory(S, n + 1);               // Full assignment of the (Boolean) variables (initially set to false)
+  S->scores = (float*) getMemory(S,n+1);
   S->next = getMemory(S, n + 1);                // Next variable in the heuristic order
   S->prev = getMemory(S, n + 1);                // Previous variable in the heuristic order
   S->buffer = getMemory(S, n);                  // A buffer to store a temporary clause
@@ -322,6 +327,7 @@ void initCDCL(struct solver *S, int n, int m)
     S->next[i - 1] = i;                             // the double-linked list for variable-move-to-front,
     S->model[i] = S->falses[-i] = S->falses[i] = 0; // the model (phase-saving), the false array,
     S->first[i] = S->first[-i] = END;
+    S->scores[i] = 0;
   } // and first (watch pointers).
   S->head = n;
 } // Initialize the head of the double-linked list
@@ -732,14 +738,77 @@ int solve_portfolio(struct solver *S,int restart_p,int stop_it,int thresh_hold)
   case RANDOM:
     return solve_random(S,stop_it);
     break;
+  case LUBY:
+    return solve_luby(S,stop_it,thresh_hold);
   default:
     return solve(S,stop_it);
     break;
   }
-} // Decisions have no reason clauses
-int solve_luby(struct solver* S,int stop_it)
+}
+int power(int base, int exponent) {
+    double result = 1.0;
+    for(int i = 0; i < exponent; i++) {
+        result *= base;
+    }
+    return result;
+}
+int luby(int y, int x) {
+
+    // Find the finite subsequence that contains index 'x', and the
+    // size of that subsequence:
+    int size, seq;
+    for(size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1);
+
+    while(size - 1 != x) {
+        size = (size - 1) >> 1;
+        seq--;
+        x = x % size;
+    }
+
+    return power(y, seq);
+}
+
+int solve_luby(struct solver* S,int stop_it,int luby_param)
 {
-  return 0;
+  int luby_index = 0;
+  int decision = S->head;
+  S->res = 0;
+  for (int i = 0; i < stop_it ; i++) {
+    int old_nLemmas = S->nLemmas;
+
+    if (propagate(S) == UNSAT) {
+      return UNSAT;
+    }
+
+    if (S->nLemmas > old_nLemmas) {
+      decision = S->head;
+      conflicts++;
+      if ( conflicts >= luby(luby_param,luby_index) ) {
+        S->res = 0;
+        luby_index++;
+        conflicts = 0;
+        restart(S);
+        if (S->nLemmas > S->maxLemmas) {
+          reduceDB(S, REDUCE_LIMIT);
+        }
+      }
+    }
+
+    while (S->falses[decision] || S->falses[-decision]) {
+      decision = S->prev[decision];
+    }
+
+    if (decision == 0) {
+      return SAT;
+    }
+
+    decision = S->model[decision] ? decision : -decision;
+    S->falses[-decision] = 1;
+    *(S->assigned++) = -decision;
+    decision = abs(decision);
+    S->reason[decision] = 0;
+  }
+  return STOPPED;
 }
 int solve_geometric(struct solver* S,int stop_it,float geometric_factor,int min_thresh_hold)
 {

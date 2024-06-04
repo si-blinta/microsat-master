@@ -96,62 +96,55 @@ static void populate_vars(int vars[11], struct solver S)
 }
 int main()
 {
-  //printf("relaunch flag %d\n",relaunch);
-  populate_solver_context(&dpu_solver);
+ seed = dpu_args.seed;
   if(first == 0)
   {
-   
-    for (int j = 0; j < 10; j++) 
-    {
-      assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-      //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    }
+    populate_solver_context(&dpu_solver);
     first = 1;
   }
-  else
+  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
+  if(dpu_ret == SAT)
   {
-    //load another solver :
-    // assign decisions
-    
-    
-    //reset
-    //assign new starting point
-    //assign new 
-    /*reset_solver(&dpu_solver);
-    for (int j = 0; j < dpu_assign_size; j++) 
+    printf("[DPU] SOLVED using ");
+    switch (dpu_args.restart_policy)
     {
-      assign_decision(&dpu_solver,dpu_assigns[j]);
-      printf("%d ",dpu_assigns[j]);
+    case FIXED:
+       printf("FIXED RESTART\n");
+      break;
+    case DEFAULT:
+       printf("DEFAULT RESTART\n");
+      break; 
+    case RANDOM:
+       printf("RANDOM RESTART\n");
+      break; 
+    default:
+      break;
     }
-    printf("\n");
-    printf("%d\n",dpu_assign_size);*/
-    if(dpu_to_assign_size > 10)
-      dpu_to_assign_size = 10;
-    for(int j = 0 ; j < dpu_to_assign_size; j++)
+    show_result(dpu_solver);
+    return SAT;
+  }
+  if(dpu_ret == UNSAT)
+  { 
+    printf("[DPU] SOLVED using ");
+    switch (dpu_args.restart_policy)
     {
-      assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
-      printf("%d ",(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
+    case FIXED:
+       printf("FIXED RESTART\n");
+      break;
+    case DEFAULT:
+       printf("DEFAULT RESTART\n");
+      break;
+    case RANDOM:
+       printf("RANDOM RESTART\n");
+      break;
+    case LUBY:
+       printf("LUBY RESTART\n");
+      break;  
+    default:
+      break;
     }
-    //printf("\n");
-    //show_solver_info_debug(dpu_solver);*/
+    return UNSAT;
   }
-  dpu_ret = solve(&dpu_solver,10);
-  populate_offsets(dpu_DB_offsets,dpu_solver);
-  populate_vars(dpu_vars,dpu_solver);
-  if(dpu_ret == SAT )
-  {
-    //show_result(dpu_solver);
-  }
-  /*if(dpu_ret == UNSAT)
-    relaunch = NO_RELAUNCH;
-  /**
-   * Here else 
-   * get assigned lits;
-   * store it in assignement_t 
-   * get unassigned lits
-   * store it in another assignement_t 
-  */
-
 }
 /**
  * DIVIDE AND CONQUER
@@ -258,3 +251,57 @@ __mram_noinit int tmp[MAX_CLAUSE_SIZE];*/
     return UNSAT;
   }
 */
+ //printf("relaunch flag %d\n",relaunch);
+  //populate_solver_context(&dpu_solver);
+  //if(first == 0)
+  //{
+   
+    //for (int j = 0; j < 10; j++) 
+    //{
+      //assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+      //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
+    //}
+    //first = 1;
+  //}
+  //else
+  //{
+    //load another solver :
+    // assign decisions
+    
+    
+    //reset
+    //assign new starting point
+    //assign new 
+    /*reset_solver(&dpu_solver);
+    for (int j = 0; j < dpu_assign_size; j++) 
+    {
+      assign_decision(&dpu_solver,dpu_assigns[j]);
+      printf("%d ",dpu_assigns[j]);
+    }
+    printf("\n");
+    printf("%d\n",dpu_assign_size);*/
+    //if(dpu_to_assign_size > 10)
+      //dpu_to_assign_size = 10;
+    //for(int j = 0 ; j < dpu_to_assign_size; j++)
+    //{
+      //assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
+      //printf("%d ",(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
+    //}
+    //printf("\n");
+    //show_solver_info_debug(dpu_solver);*/
+  //}
+  //dpu_ret = solve(&dpu_solver,10);
+  //populate_offsets(dpu_DB_offsets,dpu_solver);
+  //populate_vars(dpu_vars,dpu_solver);
+  //if(dpu_ret == SAT )
+  //{
+    //show_result(dpu_solver);
+  //}
+  /*if(dpu_ret == UNSAT)
+    relaunch = NO_RELAUNCH;
+   * Here else 
+   * get assigned lits;
+   * store it in assignement_t 
+   * get unassigned lits
+   * store it in another assignement_t 
+  */
