@@ -30,6 +30,7 @@
         "float.h": "c",
         "utils.h": "c",
         "mutex.h": "c",
-        "divide_conquer.h": "c"
+        "divide_conquer.h": "c",
+        "stdint.h": "c"
     }
 }
