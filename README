@@ -78,7 +78,7 @@ TODO :
     -IMPLEMENT VSIDS:
         -ADDED SCORES.
         -ADD PARAMETERS OF DECAY AND BUMP AND WHEN TO DECAY.
-        -NOW MODIFY THE BUMP FUNCTION TO ACTUALLY ORGANIZE THE DECISION ORDER BY SCORES.
+        -IN analyse function, i must remove the bump of variables that are in the clause that caused conflict.
     -RESTART:
         -USE LBD RESTART : 
             -It consists of restarting whenever we have high lbd clauses, see ( https://univ-artois.hal.science/hal-03299473/file/preprint.pdf)

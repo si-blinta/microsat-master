@@ -3,7 +3,6 @@
 #define NB_DPU 1024
 #include <dpu.h>
 #include <assert.h>
-#include "divide_conquer.h"
 #define roundup(n, m) ((n / m) * m + m)
 #define rounddown(n, m) ((n / m) * m)
 

@@ -1,8 +1,7 @@
 #include <stdio.h>
-#include "microsat.h"   
+#include "microsat_dpu.h"   
 #include "utils.h"
 #include "mram.h"
-#include "divide_conquer.h"
 /**
  * SOLVER DATA TRANSFER
 */
@@ -57,7 +56,6 @@ int first ;
 */
 __host int dpu_iterations;
 __host int dpu_id; 
-__host int dpu_to_assign[MAX_ASSIGNMENT_SIZE];
 __host int dpu_to_assign_size;
 
 //Extern

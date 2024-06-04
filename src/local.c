@@ -1,5 +1,4 @@
 #include "microsat_host.h"
-#include "hostTools.h"
 #include "log.h"
 #include <stdint.h>
 #include "time.h"
@@ -88,17 +87,7 @@ int solve_luby(struct solver* S,int stop_it,int luby_param)
 
 int main(int argc, char **argv)
 {
-  if (argc < 3)
-    abort();
-  struct dpu_set_t set;
-  uint32_t nb_dpus = atoi(argv[2]); 
-  HOST_TOOLS_allocate_dpus(&set,&nb_dpus);
-  HOST_TOOLS_compile(1);
-  dpu_load(set,DPU_BINARY,NULL);
-  srand(time(NULL));
-  HOST_TOOLS_pure_portfolio(argv[1],set);
-  //HOST_TOOLS_divide_and_conquer(argv[1],set);
-  /*clock_t start,end;
+  clock_t start,end;
   double duration;
   struct solver dpu_solver;
   start = clock();
@@ -119,9 +108,6 @@ int main(int argc, char **argv)
   }
   
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
-  printf("DPU %lf ms\n",duration);*/
-  //print_decision_list(&dpu_solver);
-  //sort_variables(&dpu_solver);
-  //print_decision_list(&dpu_solver);
+  printf("DPU %lf ms\n",duration);
 
 }
