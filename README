@@ -82,4 +82,5 @@ TODO :
     -RESTART:
         -USE LBD RESTART : 
             -It consists of restarting whenever we have high lbd clauses, see ( https://univ-artois.hal.science/hal-03299473/file/preprint.pdf)
-    
+    semaine 1, jeudi : 
+        -Mécanisme de suppression des clauses.

@@ -49,7 +49,9 @@ enum restart_policy {
 
 enum reduce_policy
 {
-  RED_DEFAULT
+  RED_DEFAULT,
+  RED_SIZE,
+  RED_VSIDS
 };
 typedef struct
 {
@@ -66,6 +68,8 @@ typedef struct
   int arith_max;
   int decay_factor;
   int decay_thresh_hold;
+  int clause_size;
+  float clause_score_ratio;
 
 }config_t;
 struct solver
@@ -74,6 +78,8 @@ struct solver
   int *DB, nVars, nClauses, mem_used, mem_fixed, maxLemmas, nLemmas, *buffer, nConflicts, *model,
       *reason, *falseStack, *falses, *first, *forced, *processed, *assigned, *next, *prev, head, res, fast, slow;
   float *scores;//For VSIDS.
+  int *decision_level;
+  int decision_counter;
   
 };
 void unassign(struct solver *S, int lit);

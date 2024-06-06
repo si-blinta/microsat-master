@@ -82,7 +82,9 @@ int main(int argc, char **argv)
   //set_solver_rest(&dpu_solver,REST_ARITH);
   //dpu_solver.config.geo_factor = 1.1;
   dpu_solver.config.br_p == BR_VSIDS;
-  dpu_solver.config.decay_thresh_hold = 5;
+  dpu_solver.config.decay_thresh_hold = 10;
+  dpu_solver.config.reduce_p = RED_SIZE;
+  dpu_solver.config.clause_size = 20;
   start = clock();
   ret = solve(&dpu_solver,INT32_MAX);
   end = clock();

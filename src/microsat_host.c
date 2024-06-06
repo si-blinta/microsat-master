@@ -1,101 +1,108 @@
 #include "microsat_host.h"
 #include "log.h"
-int power(int base, int exponent) {
-    double result = 1.0;
-    for(int i = 0; i < exponent; i++) {
-        result *= base;
-    }
-    return result;
+int power(int base, int exponent)
+{
+  double result = 1.0;
+  for (int i = 0; i < exponent; i++)
+  {
+    result *= base;
+  }
+  return result;
 }
-int luby(int y, int x) {
+int luby(int y, int x)
+{
 
-    // Find the finite subsequence that contains index 'x', and the
-    // size of that subsequence:
-    int size, seq;
-    for(size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1);
+  // Find the finite subsequence that contains index 'x', and the
+  // size of that subsequence:
+  int size, seq;
+  for (size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1)
+    ;
 
-    while(size - 1 != x) {
-        size = (size - 1) >> 1;
-        seq--;
-        x = x % size;
-    }
+  while (size - 1 != x)
+  {
+    size = (size - 1) >> 1;
+    seq--;
+    x = x % size;
+  }
 
-    return power(y, seq);
+  return power(y, seq);
 }
-void check_and_restart(struct solver *S) {
-    int reduce_flag = 0;
-    if (S->nLemmas > S->maxLemmas)
-      reduce_flag = 1;
-    switch (S->config.rest_p) {
-        case REST_DEFAULT:
-            if (S->fast > (S->slow / 100) * 125) 
-            {
-                printf("default restart after %d conflicts\n",S->config.conflicts);
-                // Restart logic for default policy
-                S->fast = (S->slow / 100) * 125; // 125
-                restart(S); // Restart and update the averages
-                if (reduce_flag)
-                  reduceDB(S, REDUCE_LIMIT); 
-            }
-            break;
-        case REST_LUBY:
-            if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
-            {
-              printf("luby restart after %d conflicts\n",S->config.conflicts);
-              restart(S); // Restart and update the averages
-              S->config.luby_index++;
-              S->config.conflicts = 0;
-              if (reduce_flag)
-                reduceDB(S, REDUCE_LIMIT); 
-            }
-            break;
-        case REST_GEO:
-            if (S->config.conflicts >= S->config.geo_max)
-            {
-              printf("geo restart after %d conflicts\n",S->config.conflicts);
-              restart(S); // Restart and update the averages
-              S->config.geo_max *= S->config.geo_factor;
-              S->config.conflicts = 0;
-              if (reduce_flag)
-                reduceDB(S, REDUCE_LIMIT); 
-            }
-            break;
-        case REST_ARITH:
-            if (S->config.conflicts >= S->config.arith_max)
-            {
-              printf("arithmetic restart after %d conflicts\n",S->config.conflicts);
-              restart(S); // Restart and update the averages
-              S->config.arith_max += S->config.arith_reason;
-              S->config.conflicts = 0;
-              if (reduce_flag)
-                reduceDB(S, REDUCE_LIMIT); 
-            }
-            break;
+void check_and_restart(struct solver *S)
+{
+  int reduce_flag = 0;
+  if (S->nLemmas > S->maxLemmas)
+    reduce_flag = 1;
+  switch (S->config.rest_p)
+  {
+  case REST_DEFAULT:
+    if (S->fast > (S->slow / 100) * 125)
+    {
+      printf("default restart after %d conflicts\n", S->config.conflicts);
+      // Restart logic for default policy
+      S->fast = (S->slow / 100) * 125; // 125
+      restart(S);                      // Restart and update the averages
+      if (reduce_flag)
+        reduceDB(S, REDUCE_LIMIT);
     }
+    break;
+  case REST_LUBY:
+    if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
+    {
+      printf("luby restart after %d conflicts\n", S->config.conflicts);
+      restart(S); // Restart and update the averages
+      S->config.luby_index++;
+      S->config.conflicts = 0;
+      if (reduce_flag)
+        reduceDB(S, REDUCE_LIMIT);
+    }
+    break;
+  case REST_GEO:
+    if (S->config.conflicts >= S->config.geo_max)
+    {
+      printf("geo restart after %d conflicts\n", S->config.conflicts);
+      restart(S); // Restart and update the averages
+      S->config.geo_max *= S->config.geo_factor;
+      S->config.conflicts = 0;
+      if (reduce_flag)
+        reduceDB(S, REDUCE_LIMIT);
+    }
+    break;
+  case REST_ARITH:
+    if (S->config.conflicts >= S->config.arith_max)
+    {
+      printf("arithmetic restart after %d conflicts\n", S->config.conflicts);
+      restart(S); // Restart and update the averages
+      S->config.arith_max += S->config.arith_reason;
+      S->config.conflicts = 0;
+      if (reduce_flag)
+        reduceDB(S, REDUCE_LIMIT);
+    }
+    break;
+  }
 }
-int solve(struct solver *S,int stop_it)
+int solve(struct solver *S, int stop_it)
 { // Determine satisfiability
   int decision = S->head;
   S->res = 0; // Initialize the solver
-  for (int i = 0; i < stop_it ; i++)
-  {                              // Main solve loop
+  for (int i = 0; i < stop_it; i++)
+  {                               // Main solve loop;
     int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    //printf("propagating\n");
+    // printf("propagating\n");
     if (propagate(S) == UNSAT)
     {
       return UNSAT; // Propagation returns UNSAT for a root level conflict
-    
     }
     if (S->nLemmas > old_nLemmas)
-    { 
+    {
       // If the last decision caused a conflict
       // printf("new learned clause\n");
       decision = S->head; // Reset the decision heuristic to head
       S->config.conflicts++;
       S->res = 0;
-      if(S->config.br_p == BR_VSIDS){
-        if(S->config.conflicts % S->config.decay_thresh_hold == 0)
-          decay(S,0.99);
+      if (S->config.br_p == BR_VSIDS)
+      {
+        if (S->config.conflicts % S->config.decay_thresh_hold == 0)
+          decay(S, 0.99);
       }
       check_and_restart(S);
     }
@@ -106,7 +113,7 @@ int solve(struct solver *S,int stop_it)
     }
     if (decision == 0)
     {
-      return SAT;                                         // If the end of the list is reached, then a solution is found
+      return SAT; // If the end of the list is reached, then a solution is found
     }
     decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
     S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
@@ -117,15 +124,14 @@ int solve(struct solver *S,int stop_it)
   return STOPPED;
 } // Decisions have no reason clauses
 
-
 void assign_decision(struct solver *S, int lit)
 {
-  S->falses[-lit] = IMPLIED;          // Mark lit as true and IMPLIED if forced
-  *(S->assigned++) = -lit;            // Push it on the assignment stack
-  S->reason[abs(lit)] = END;          // Set the reason as undefined ( different from 0 ).
+  S->falses[-lit] = IMPLIED; // Mark lit as true and IMPLIED if forced
+  *(S->assigned++) = -lit;   // Push it on the assignment stack
+  S->reason[abs(lit)] = END; // Set the reason as undefined ( different from 0 ).
   S->model[abs(lit)] = (lit > 0);
 }
-void unassign(struct solver *S, int lit) { S->falses[lit] = 0; } // Unassign the literal
+void unassign(struct solver *S, int lit) { S->falses[lit] = 0; S->decision_level[abs(lit)] = 0; } // Unassign the literal
 
 void restart(struct solver *S)
 { // Perform a restart (i.e., unassign all variables)
@@ -141,7 +147,18 @@ void assign(struct solver *S, int *reason, int forced)
   *(S->assigned++) = -lit;                         // Push it on the assignment stack
   S->reason[abs(lit)] = 1 + (int)((reason)-S->DB); // Set the reason clause of lit
   S->model[abs(lit)] = (lit > 0);
-//printf("c model[%d]=%d\n",abs(lit),S->model[abs(lit)]);
+  if (forced) {
+        S->decision_level[abs(lit)] = S->decision_counter;
+    } else {
+        // Increment the decision counter and assign it to the new decision
+        S->decision_counter++;
+        S->decision_level[abs(lit)] = S->decision_counter;
+    }
+    // Debugging information
+    printf("Assign: Literal %d, Decision Level: %d\n", lit, S->decision_level[abs(lit)]);
+    printf("Press Enter to continue...");
+    getchar();
+  // printf("c model[%d]=%d\n",abs(lit),S->model[abs(lit)]);
 } // Mark the literal as true in the model
 
 void addWatch(struct solver *S, int lit, int mem)
@@ -153,7 +170,7 @@ void addWatch(struct solver *S, int lit, int mem)
 int *getMemory(struct solver *S, int mem_size)
 { // Allocate memory of size mem_size
   if (S->mem_used > MEM_MAX - mem_size)
-  { // In case the code is used within a code base    
+  { // In case the code is used within a code base
     printf("c out of memory | mem used %d|mem wanted to allocate %d\n", S->mem_used, mem_size);
     exit(1);
   }
@@ -180,24 +197,60 @@ int *addClause(struct solver *S, int *in, int size, int irr)
   return clause;
 } // Return the pointer to the clause is the database
 
-void reduceDB (struct solver* S, int k) {                     // Removes "less useful" lemmas from DB
-  while (S->nLemmas > S->maxLemmas) S->maxLemmas += 300;      // Allow more lemmas in the future
-  S->nLemmas = 0;                                             // Reset the number of lemmas
+void reduceDB(struct solver *S, int k)
+{ // Removes "less useful" lemmas from DB
+  while (S->nLemmas > S->maxLemmas)
+    S->maxLemmas += 300; // Allow more lemmas in the future
+  S->nLemmas = 0;        // Reset the number of lemmas
 
-  int i; for (i = -S->nVars; i <= S->nVars; i++) {            // Loop over the variables
-    if (i == 0) continue; int* watch = &S->first[i];          // Get the pointer to the first watched clause
-    while (*watch != END)                                     // As long as there are watched clauses
-      if (*watch < S->mem_fixed) watch = (S->DB + *watch);    // Remove the watch if it points to a lemma
-      else                      *watch =  S->DB[  *watch]; }  // Otherwise (meaning an input clause) go to next watch
+  int i;
+  for (i = -S->nVars; i <= S->nVars; i++)
+  { // Loop over the variables
+    if (i == 0)
+      continue;
+    int *watch = &S->first[i]; // Get the pointer to the first watched clause
+    while (*watch != END)      // As long as there are watched clauses
+      if (*watch < S->mem_fixed)
+        watch = (S->DB + *watch); // Remove the watch if it points to a lemma
+      else
+        *watch = S->DB[*watch];
+  } // Otherwise (meaning an input clause) go to next watch
 
-  int old_used = S->mem_used; S->mem_used = S->mem_fixed;     // Virtually remove all lemmas
-  for (i = S->mem_fixed + 2; i < old_used; i += 3) {          // While the old memory contains lemmas
-    int count = 0, head = i;                                  // Get the lemma to which the head is pointing
-    while (S->DB[i]) { int lit = S->DB[i++];                  // Count the number of literals
-      if ((lit > 0) == S->model[abs (lit)]) count++; }        // That are satisfied by the current model
-    if (count < k) addClause (S, S->DB+head, i-head, 0); } }  // If the latter is smaller than k, add it back
+  int old_used = S->mem_used;
+  S->mem_used = S->mem_fixed; // Virtually remove all lemmas
+  for (i = S->mem_fixed + 2; i < old_used; i += 3)
+  {                          // While the old memory contains lemmas
+    int count = 0, head = i; // Get the lemma to which the head is pointing
+    int size = 0;
+    float score = 0;
+    int lbd = 0;
+    while (S->DB[i])
+    {
+      int lit = S->DB[i++]; // Count the number of literals
+      if ((lit > 0) == S->model[abs(lit)])
+        count++;
+      size++;
+      score+= S->scores[abs(lit)];
+    } // That are satisfied by the current model
+    if ( S->config.reduce_p == RED_DEFAULT && count < k)
+    {
+      addClause(S, S->DB + head, i - head, 0);
+    }
+    else if(S->config.reduce_p == RED_SIZE && size <= S->config.clause_size)
+    {
+      addClause(S, S->DB + head, i - head, 0);
+    }
+    //TODO : choose a good VSIDS ratio
+    else if(S->config.reduce_p == RED_VSIDS && S->config.clause_score_ratio <= score/size )
+    {
+      addClause(S, S->DB + head, i - head, 0);
+    }
+    // LBD SCORE  = 2 always keep it ( glucose ) 
 
-void increment(struct solver *S,int lit)
+  }
+} // If the latter is smaller than k, add it back
+
+void increment(struct solver *S, int lit)
 {
   if (S->falses[lit] != IMPLIED)
   {
@@ -223,83 +276,93 @@ void bump(struct solver *S, int lit)
 } // Make var the new head
 // Utility function to split the nodes of the given list into two halves.
 // Function to find the middle of the linked list
-int getMiddle(struct solver *S, int head) {
-    int slow = head;
-    int fast = S->prev[head];
+int getMiddle(struct solver *S, int head)
+{
+  int slow = head;
+  int fast = S->prev[head];
 
-    // Move fast by 2 and slow by 1
-    // Finally slow will point to middle node
-    while (fast != 0) {
-        fast = S->prev[fast];
-        if (fast != 0) {
-            slow = S->prev[slow];
-            fast = S->prev[fast];
-        }
+  // Move fast by 2 and slow by 1
+  // Finally slow will point to middle node
+  while (fast != 0)
+  {
+    fast = S->prev[fast];
+    if (fast != 0)
+    {
+      slow = S->prev[slow];
+      fast = S->prev[fast];
     }
-    return slow;
+  }
+  return slow;
 }
 
 // Function to merge two halves
-int sortedMerge(struct solver *S, int left, int right) {
-    if (left == 0)
-        return right;
-    if (right == 0)
-        return left;
+int sortedMerge(struct solver *S, int left, int right)
+{
+  if (left == 0)
+    return right;
+  if (right == 0)
+    return left;
 
-    // Pick either a or b, and recur
-    if (S->scores[left] >= S->scores[right]) {
-        S->prev[left] = sortedMerge(S, S->prev[left], right);
-        S->next[S->prev[left]] = left;
-        S->next[left] = 0; // Might be the last element now
-        return left;
-    } else {
-        S->prev[right] = sortedMerge(S, left, S->prev[right]);
-        S->next[S->prev[right]] = right;
-        S->next[right] = 0; // Might be the last element now
-        return right;
-    }
+  // Pick either a or b, and recur
+  if (S->scores[left] >= S->scores[right])
+  {
+    S->prev[left] = sortedMerge(S, S->prev[left], right);
+    S->next[S->prev[left]] = left;
+    S->next[left] = 0; // Might be the last element now
+    return left;
+  }
+  else
+  {
+    S->prev[right] = sortedMerge(S, left, S->prev[right]);
+    S->next[S->prev[right]] = right;
+    S->next[right] = 0; // Might be the last element now
+    return right;
+  }
 }
 
 // Function to do merge sort
-void mergeSort(struct solver *S, int *headRef) {
-    int head = *headRef;
-    if ((head == 0) || (S->prev[head] == 0))
-        return;
+void mergeSort(struct solver *S, int *headRef)
+{
+  int head = *headRef;
+  if ((head == 0) || (S->prev[head] == 0))
+    return;
 
-    // Get the middle of the list
-    int middle = getMiddle(S, head);
+  // Get the middle of the list
+  int middle = getMiddle(S, head);
 
-    // Split the list into two halves
-    int left = head;
-    int right = S->prev[middle];
-    S->prev[middle] = 0;
+  // Split the list into two halves
+  int left = head;
+  int right = S->prev[middle];
+  S->prev[middle] = 0;
 
-    // Recursively sort the halves
-    mergeSort(S, &left);
-    mergeSort(S, &right);
+  // Recursively sort the halves
+  mergeSort(S, &left);
+  mergeSort(S, &right);
 
-    // Merge the sorted halves
-    *headRef = sortedMerge(S, left, right);
+  // Merge the sorted halves
+  *headRef = sortedMerge(S, left, right);
 }
 
 // Caller function for sorting
-void sort_variables(struct solver *S) {
-    mergeSort(S, &S->head);
-
-    // Correctly assign next pointers from prev
-    int current = S->head;
-    int last = 0;
-    while (current != 0) {
-        S->next[current] = last;
-        last = current;
-        current = S->prev[current];
-    }
-}
-void decay(struct solver *S,float factor)
+void sort_variables(struct solver *S)
 {
-  for(int j = 1 ; j < S->nVars+1 ; j++)
+  mergeSort(S, &S->head);
+
+  // Correctly assign next pointers from prev
+  int current = S->head;
+  int last = 0;
+  while (current != 0)
   {
-    S->scores[j] = S->scores[j]*factor;
+    S->next[current] = last;
+    last = current;
+    current = S->prev[current];
+  }
+}
+void decay(struct solver *S, float factor)
+{
+  for (int j = 1; j < S->nVars + 1; j++)
+  {
+    S->scores[j] = S->scores[j] * factor;
   }
 }
 int implied(struct solver *S, int lit)
@@ -323,14 +386,14 @@ int *analyze(struct solver *S, int *clause)
 { // Compute a resolvent from falsified clause
   S->res++;
   S->nConflicts++; // Bump restarts and update the statistic
-    while (*clause)
-    {
-      if(S->config.br_p == BR_CHB)
-        bump(S, *(clause++)); // MARK all literals in the falsified clause
-      if(S->config.br_p == BR_VSIDS)
-        increment(S,*(clause++));
-      //todo lrb
-    }
+  while (*clause)
+  {
+    if (S->config.br_p == BR_CHB)
+      bump(S, *(clause++)); // MARK all literals in the falsified clause
+    if (S->config.br_p == BR_VSIDS)
+      increment(S, *(clause++));
+    // todo lrb
+  }
   while (S->reason[abs(*(--S->assigned))])
   { // Loop on variables on falseStack until the last decision
     if (S->falses[*S->assigned] == MARK)
@@ -340,15 +403,15 @@ int *analyze(struct solver *S, int *clause)
         if (!S->reason[abs(*check)])
           goto build;                                // Otherwise it is the first-UIP so break
       clause = S->DB + S->reason[abs(*S->assigned)]; // Get the reason and ignore first literal
-    while (*clause)
-    { // is it also good for VSIDS : incrementing all the variables that are in the clause that caused a conflict ? ask sami
-      if(S->config.br_p == BR_CHB)
-        bump(S, *(clause++)); // MARK all literals in the falsified clause
-      if(S->config.br_p == BR_VSIDS)
-        increment(S,*(clause++));
-      //todo lrb
-    } 
-    } 
+      while (*clause)
+      { // is it also good for VSIDS : incrementing all the variables that are in the clause that caused a conflict ? ask sami
+        if (S->config.br_p == BR_CHB)
+          bump(S, *(clause++)); // MARK all literals in the falsified clause
+        if (S->config.br_p == BR_VSIDS)
+          increment(S, *(clause++));
+        // todo lrb
+      }
+    }
     unassign(S, *S->assigned);
   } // Unassign the tail of the stack
 build:;
@@ -380,9 +443,9 @@ build:;
     unassign(S, *(S->assigned--));   // Unassign all lits between tail & head
   unassign(S, *S->assigned);         // Assigned now equal to processed
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
-  //sort_variables(S);
+  // sort_variables(S);
   return addClause(S, S->buffer, size, 0);
-  if(S->config.br_p == BR_VSIDS)
+  if (S->config.br_p == BR_VSIDS)
     sort_variables(S);
 } // Add new conflict clause to redundant DB
 
@@ -421,6 +484,7 @@ int propagate(struct solver *S)
         { // If the other watched literal is falsified,
           assign(S, clause, forced);
         } // A unit clause is found, and the reason is set
+        
         else
         {
           if (forced)
@@ -429,6 +493,7 @@ int propagate(struct solver *S)
           if (!lemma[1])
             forced = 1; // In case a unit clause is found, set forced flag
           assign(S, lemma, forced);
+         
           break;
         }
       }
@@ -448,38 +513,43 @@ void initCDCL(struct solver *S, int n, int m)
   S->mem_used = 0;             // The number of integers allocated in the DB
   S->nLemmas = 0;              // The number of learned clauses -- redundant means learned
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
-  S->maxLemmas = MAX_LEMMAS;         // Initial maximum number of learnt clauses  //2000 default
+  S->maxLemmas = MAX_LEMMAS;   // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
+  S->decision_counter = 0;
   S->config.br_p = BR_CHB;
   S->config.reduce_p = RED_DEFAULT;
-  S->config.rest_p   = REST_DEFAULT;
+  S->config.rest_p = REST_DEFAULT;
   S->config.conflicts = 0;
   S->config.luby_base = 64;
-  S->config.luby_index= 0;
+  S->config.luby_index = 0;
   S->config.geo_factor = 1.1;
-  S->config.geo_max = 100 ;
-  S->config.arith_max = 100 ;
-  S->config.arith_reason = 500 ;
+  S->config.geo_max = 100;
+  S->config.arith_max = 100;
+  S->config.arith_reason = 500;
   S->config.decay_factor = 0.99;
-  S->config.decay_thresh_hold = 1 ; // like in minisat
+  S->config.decay_thresh_hold = 1; // like in minisat
+  S->config.clause_size = 2;
+  S->config.clause_score_ratio = 0.5; // TODO NOT FINISHED ( need to be dynamic)
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
-  memset(S->DB,0,MEM_MAX*sizeof(int));
-  S->model = getMemory(S, n + 1);               // Full assignment of the (Boolean) variables (initially set to false)
-  S->scores = (float*) getMemory(S,n+1);
-  S->next = getMemory(S, n + 1);                // Next variable in the heuristic order
-  S->prev = getMemory(S, n + 1);                // Previous variable in the heuristic order
-  S->buffer = getMemory(S, n);                  // A buffer to store a temporary clause
-  S->reason = getMemory(S, n + 1);              // Array of clauses
-  S->falseStack = getMemory(S, n + 1);          // Stack of falsified literals -- this pointer is never changed
-  S->forced = S->falseStack;                    // Points inside *falseStack at first decision (unforced literal)
-  S->processed = S->falseStack;                 // Points inside *falseStack at first unprocessed literal
-  S->assigned = S->falseStack;                  // Points inside *falseStack at last unprocessed literal
+  memset(S->DB, 0, MEM_MAX * sizeof(int));
+  S->model = getMemory(S, n + 1); // Full assignment of the (Boolean) variables (initially set to false)
+  S->scores = (float *)getMemory(S, n + 1);
+  S->decision_level = getMemory(S, n + 1); //ADDED
+  for (int i = 0; i <= n; i++) S->decision_level[i] = 0;
+  S->next = getMemory(S, n + 1);       // Next variable in the heuristic order
+  S->prev = getMemory(S, n + 1);       // Previous variable in the heuristic order
+  S->buffer = getMemory(S, n);         // A buffer to store a temporary clause
+  S->reason = getMemory(S, n + 1);     // Array of clauses
+  S->falseStack = getMemory(S, n + 1); // Stack of falsified literals -- this pointer is never changed
+  S->forced = S->falseStack;           // Points inside *falseStack at first decision (unforced literal)
+  S->processed = S->falseStack;        // Points inside *falseStack at first unprocessed literal
+  S->assigned = S->falseStack;         // Points inside *falseStack at last unprocessed literal
   S->falses = getMemory(S, 2 * n + 1);
   S->falses += n; // Labels for variables, non-zero means false
   S->first = getMemory(S, 2 * n + 1);
   S->first += n;            // Offset of the first watched clause
   S->DB[S->mem_used++] = 0; // Make sure there is a 0 before the clauses are loaded.
-
+  
   int i;
   for (i = 1; i <= n; i++)
   { // Initialize the main datastructes:
@@ -527,7 +597,7 @@ int parse(struct solver *S, char *filename)
     if (tmp > 0 && tmp != EOF)
       break;
     tmp = fscanf(input, "%*s\n");
-  }                               // In case a commment line was found
+  } // In case a commment line was found
   while (tmp != 2 && tmp != EOF); // Skip it and read next line
 
   initCDCL(S, S->nVars, S->nClauses); // Allocate the main datastructures
@@ -567,13 +637,13 @@ int parse(struct solver *S, char *filename)
     pclose(input); // Close the formula pipe
   return SAT;
 } // Return that no conflict was observed
-int* get_unassigned_lits(struct solver S,int *size)
+int *get_unassigned_lits(struct solver S, int *size)
 {
-  int* lits = malloc(S.nVars*sizeof(int));
+  int *lits = malloc(S.nVars * sizeof(int));
   int j = 0;
-  for(int i = 1 ; i < S.nVars; i++)
+  for (int i = 1; i < S.nVars; i++)
   {
-    if(S.falses[i] == 0 && S.falses[-i] == 0)
+    if (S.falses[i] == 0 && S.falses[-i] == 0)
     {
       lits[j] = i;
       j++;
@@ -582,15 +652,15 @@ int* get_unassigned_lits(struct solver S,int *size)
   *size = j;
   return lits;
 }
-int* get_assigned_lits(struct solver S, int* size)
+int *get_assigned_lits(struct solver S, int *size)
 {
-  int* lits = malloc(S.nVars*sizeof(int));
+  int *lits = malloc(S.nVars * sizeof(int));
   int j = 0;
-  for(int i = 1 ; i < S.nVars; i++)
+  for (int i = 1; i < S.nVars; i++)
   {
-    if(S.falses[i] != 0 || S.falses[-i] != 0)
+    if (S.falses[i] != 0 || S.falses[-i] != 0)
     {
-      if(S.falses[i] != 0)
+      if (S.falses[i] != 0)
         lits[j] = i;
       else
         lits[j] = -i;
@@ -600,38 +670,38 @@ int* get_assigned_lits(struct solver S, int* size)
   *size = j;
   return lits;
 }
-int* get_reasons(struct solver S)
+int *get_reasons(struct solver S)
 {
-  int* reasons = malloc((S.nVars+1)*sizeof(int));
-  memcpy(reasons,S.reason,(S.nVars+1)*sizeof(int));
+  int *reasons = malloc((S.nVars + 1) * sizeof(int));
+  memcpy(reasons, S.reason, (S.nVars + 1) * sizeof(int));
   return reasons;
 }
 
-void unassign_last_decision(struct solver *S) 
+void unassign_last_decision(struct solver *S)
 {
   int lit = *(--S->assigned);
-  if(S->falses[lit] != IMPLIED)
-    unassign(S,lit);
+  if (S->falses[lit] != IMPLIED)
+    unassign(S, lit);
 }
 void unassign_all(struct solver *S)
 {
-  while(S->assigned != S->falseStack)
+  while (S->assigned != S->falseStack)
   {
     unassign_last_decision(S);
   }
-} 
+}
 
 void reset_solver(struct solver *S)
 {
   unassign_all(S);
-  //restart(S);
+  // restart(S);
 }
 
 int get_unassigned(struct solver S)
 {
-  for(int i = 1 ; i < S.nVars; i++)
+  for (int i = 1; i < S.nVars; i++)
   {
-    if(!(S.falses[i] != 0 || S.falses[-i] != 0))
+    if (!(S.falses[i] != 0 || S.falses[-i] != 0))
     {
       return i;
     }
@@ -641,24 +711,24 @@ int get_unassigned(struct solver S)
 
 void picosat_proof(struct solver S)
 {
-  for(int i = 1 ; i < S.nVars+1 ; i++)
+  for (int i = 1; i < S.nVars + 1; i++)
   {
     int m = 1;
-    if(S.model[i] == 0)
+    if (S.model[i] == 0)
       m = -1;
-    printf("-a %d ",i *m);
+    printf("-a %d ", i * m);
   }
   printf("\n\n");
 }
 void show_result(struct solver S)
 {
-  log_message(LOG_LEVEL_INFO,"Results :");
+  log_message(LOG_LEVEL_INFO, "Results :");
   for (int i = 0; i < S.nVars + 1; i++)
   {
-    printf("[%d,%d] ",i,(int)S.model[i]);
+    printf("[%d,%d] ", i, (int)S.model[i]);
   }
   printf("\n\n");
-  log_message(LOG_LEVEL_INFO,"Pico Sat proof:");
+  log_message(LOG_LEVEL_INFO, "Pico Sat proof:");
   picosat_proof(S);
 }
 #define ANSI_COLOR_RED "\x1b[31m"
@@ -669,9 +739,9 @@ void show_result(struct solver S)
 #define ANSI_COLOR_CYAN "\x1b[36m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 void show_solver_info_debug(struct solver S)
-{ 
-  log_message(LOG_LEVEL_INFO,"Solver data base"); 
-  int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1,__INT_MAX__};
+{
+  log_message(LOG_LEVEL_INFO, "Solver data base");
+  int partition[9] = {S.nVars + 1, S.nVars + 1, S.nVars + 1, S.nVars, S.nVars + 1, S.nVars + 1, 2 * S.nVars + 1, 2 * S.nVars + 1, __INT_MAX__};
   int current = partition[0];
   int cumul = 0;
   int j = 0;
@@ -718,8 +788,8 @@ void show_solver_info_debug(struct solver S)
   printf("\n");
 }
 void show_solver_stats(struct solver S)
-{ 
-  log_message(LOG_LEVEL_INFO,"Solver stats");
+{
+  log_message(LOG_LEVEL_INFO, "Solver stats");
   printf("nVars     = %d\n", S.nVars);
   printf("nClauses  = %d\n", S.nClauses);
   printf("mem_used  = %d\n", S.mem_used);
@@ -743,19 +813,19 @@ void show_solver_stats(struct solver S)
   printf("buffer    = %d\n", S.buffer[0]);
   printf("model     = %d\n", S.model[0]);
 }
-void set_solver_config(struct solver *S,config_t config)
+void set_solver_config(struct solver *S, config_t config)
 {
   S->config = config;
 }
-void set_solver_br(struct solver *S,enum branching_policy br)
+void set_solver_br(struct solver *S, enum branching_policy br)
 {
   S->config.br_p = br;
 }
-void set_solver_rest(struct solver *S,enum restart_policy rest)
+void set_solver_rest(struct solver *S, enum restart_policy rest)
 {
   S->config.rest_p = rest;
 }
-void set_solver_red(struct solver *S,enum reduce_policy red)
+void set_solver_red(struct solver *S, enum reduce_policy red)
 {
   S->config.reduce_p = red;
 }
