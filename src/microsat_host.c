@@ -530,7 +530,6 @@ build:;
     unassign(S, *(S->assigned--),1);   // Unassign all lits between tail & head
   unassign(S, *S->assigned,1);         // Assigned now equal to processed
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
-  // sort_variables(S);
   return addClause(S, S->buffer, size, 0);
 } // Add new conflict clause to redundant DB
 
@@ -586,8 +585,6 @@ int propagate(struct solver *S)
   } // Assign the conflict clause as a unit
   if (forced)
     S->forced = S->processed; // Set S->forced if applicable
-  if (S->config.br_p == BR_VSIDS)
-    sort_variables(S);
   return SAT;
 } // Finally, no conflict was found
 
