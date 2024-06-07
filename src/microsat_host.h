@@ -6,7 +6,7 @@
 #include <stdint.h>
 #define DECISION_DEBUG 0
 #define RESTART_DEBUG 0 
-#define REDUCE_DEBUG 1
+#define REDUCE_DEBUG 0
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
 #define REDUCE_LIMIT 6

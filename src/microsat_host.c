@@ -134,7 +134,6 @@ int solve(struct solver *S, int stop_it)
     S->reason[decision] = 0;
     S->decision_counter++;
     S->decision_level[decision] = S->decision_counter;
-    printf("%d (%f)\n",decision,S->scores[decision]);
 #if DECISION_DEBUG
     log_decision(decision, S->decision_level[decision]); // Log decision
 #endif
