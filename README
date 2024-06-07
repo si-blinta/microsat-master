@@ -85,3 +85,15 @@ TODO :
     semaine 1, jeudi : 
         -Mécanisme de suppression des clauses.
     TODO : Add the decision level to implement lbd clause suppression.
+
+
+
+
+
+
+
+
+WHAT I JUST DID THIS WEEK : 
+    - implemented VSIDS : added scores
+    - implemented Decision levels, suppression based on lbd = 2
+    

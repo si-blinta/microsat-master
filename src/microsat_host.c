@@ -37,45 +37,57 @@ void check_and_restart(struct solver *S)
   case REST_DEFAULT:
     if (S->fast > (S->slow / 100) * 125)
     {
-      printf("default restart after %d conflicts\n", S->config.conflicts);
+#if RESTART_DEBUG    
+      log_message(LOG_LEVEL_DEBUG,"default restart after %d conflicts\n", S->config.conflicts);
+#endif
       // Restart logic for default policy
       S->fast = (S->slow / 100) * 125; // 125
       restart(S);                      // Restart and update the averages
       if (reduce_flag)
         reduceDB(S, REDUCE_LIMIT);
+      reset_decision_levels(S);
     }
     break;
   case REST_LUBY:
     if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
     {
-      printf("luby restart after %d conflicts\n", S->config.conflicts);
+#if RESTART_DEBUG    
+      log_message(LOG_LEVEL_DEBUG,"luby restart after %d conflicts\n", S->config.conflicts);
+#endif
       restart(S); // Restart and update the averages
       S->config.luby_index++;
       S->config.conflicts = 0;
       if (reduce_flag)
         reduceDB(S, REDUCE_LIMIT);
+      reset_decision_levels(S);
     }
     break;
   case REST_GEO:
     if (S->config.conflicts >= S->config.geo_max)
     {
-      printf("geo restart after %d conflicts\n", S->config.conflicts);
+#if RESTART_DEBUG   
+      log_message(LOG_LEVEL_DEBUG,"geo restart after %d conflicts\n", S->config.conflicts);
+#endif 
       restart(S); // Restart and update the averages
       S->config.geo_max *= S->config.geo_factor;
       S->config.conflicts = 0;
       if (reduce_flag)
         reduceDB(S, REDUCE_LIMIT);
+      reset_decision_levels(S);
     }
     break;
   case REST_ARITH:
     if (S->config.conflicts >= S->config.arith_max)
     {
-      printf("arithmetic restart after %d conflicts\n", S->config.conflicts);
+#if RESTART_DEBUG   
+      log_message(LOG_LEVEL_DEBUG,"arithmetic restart after %d conflicts\n", S->config.conflicts);
+#endif
       restart(S); // Restart and update the averages
       S->config.arith_max += S->config.arith_reason;
       S->config.conflicts = 0;
       if (reduce_flag)
         reduceDB(S, REDUCE_LIMIT);
+      reset_decision_levels(S);
     }
     break;
   }
@@ -102,7 +114,7 @@ int solve(struct solver *S, int stop_it)
       if (S->config.br_p == BR_VSIDS)
       {
         if (S->config.conflicts % S->config.decay_thresh_hold == 0)
-          decay(S, 0.99);
+          decay(S, 0.90);
       }
       check_and_restart(S);
     }
@@ -120,6 +132,15 @@ int solve(struct solver *S, int stop_it)
     *(S->assigned++) = -decision;                         // And push it on the assigned stack
     decision = abs(decision);
     S->reason[decision] = 0;
+    S->decision_counter++;
+    S->decision_level[decision] = S->decision_counter;
+    printf("%d (%f)\n",decision,S->scores[decision]);
+#if DECISION_DEBUG
+    log_decision(decision, S->decision_level[decision]); // Log decision
+#endif
+    /*printf("Press Enter to continue...");
+    getchar();*/
+    
   }
   return STOPPED;
 } // Decisions have no reason clauses
@@ -131,12 +152,28 @@ void assign_decision(struct solver *S, int lit)
   S->reason[abs(lit)] = END; // Set the reason as undefined ( different from 0 ).
   S->model[abs(lit)] = (lit > 0);
 }
-void unassign(struct solver *S, int lit) { S->falses[lit] = 0; S->decision_level[abs(lit)] = 0; } // Unassign the literal
-
+void unassign(struct solver *S, int lit,int flag) { 
+  if(flag == 1)//flag == 0 when restarting
+  {
+#if DECISION_DEBUG
+    log_unassign(lit, S->decision_level[abs(lit)]); // Log unassign
+#endif 
+    S->decision_level[abs(lit)] = -1;
+    if (S->decision_counter > 0 && S->reason[abs(lit)] == 0 )
+            S->decision_counter--;
+  }     
+  S->falses[lit] = 0; 
+  } // Unassign the literal
+void reset_decision_levels(struct solver *S)
+{
+  for(int lit = 1 ; lit < S->nVars+1 ; lit++)
+    S->decision_level[lit] = -1;
+  S->decision_counter = 0;
+}
 void restart(struct solver *S)
 { // Perform a restart (i.e., unassign all variables)
   while (S->assigned > S->forced)
-    unassign(S, *(--S->assigned)); // Remove all unforced false lits from falseStack
+    unassign(S, *(--S->assigned),0); // Remove all unforced false lits from falseStack
   S->processed = S->forced;
 } // Reset the processed pointer
 
@@ -147,18 +184,10 @@ void assign(struct solver *S, int *reason, int forced)
   *(S->assigned++) = -lit;                         // Push it on the assignment stack
   S->reason[abs(lit)] = 1 + (int)((reason)-S->DB); // Set the reason clause of lit
   S->model[abs(lit)] = (lit > 0);
-  if (forced) {
-        S->decision_level[abs(lit)] = S->decision_counter;
-    } else {
-        // Increment the decision counter and assign it to the new decision
-        S->decision_counter++;
-        S->decision_level[abs(lit)] = S->decision_counter;
-    }
-    // Debugging information
-    printf("Assign: Literal %d, Decision Level: %d\n", lit, S->decision_level[abs(lit)]);
-    printf("Press Enter to continue...");
-    getchar();
-  // printf("c model[%d]=%d\n",abs(lit),S->model[abs(lit)]);
+  S->decision_level[abs(lit)] = S->decision_counter;
+#if DECISION_DEBUG  
+  log_propagation(lit, S->decision_level[abs(lit)]); // Log propagation
+#endif
 } // Mark the literal as true in the model
 
 void addWatch(struct solver *S, int lit, int mem)
@@ -196,7 +225,49 @@ int *addClause(struct solver *S, int *in, int size, int irr)
     S->nLemmas++; // Update the statistics
   return clause;
 } // Return the pointer to the clause is the database
+//Myabe we will use it later.
+int compute_lbd(struct solver *S, int *clause) {
+    int levels[S->nVars + 1];
+    memset(levels, 0, sizeof(levels)); // Initialize levels array to 0
+    int lbd = 0;
+    
+    for (int i = 0; clause[i]; i++) {
+        int var = abs(clause[i]);
+        int level = S->decision_level[var];
+        if (level > 0 && level <= S->nVars && !levels[level]) {
+            levels[level] = 1;
+            lbd++;
+        }
+    }
+    return lbd;
+}
+int is_lbd_2(struct solver *S, int *clause) {
+    int levels[3] = {0, 0, 0}; // Array to store up to 3 unique decision levels
+    int lbd = 0;
 
+    for (int i = 0; clause[i]; i++) {
+        int var = abs(clause[i]);
+        int level = S->decision_level[var];
+        
+        if (level > 0) {
+            int j;
+            for (j = 0; j < lbd; j++) {
+                if (levels[j] == level) {
+                    break;
+                }
+            }
+            if (j == lbd) {
+                if (lbd < 2) {
+                    levels[lbd++] = level;
+                } else {
+                    return 0; // More than 2 unique decision levels
+                }
+            }
+        }
+    }
+
+    return 1; // LBD is less than or equal to 2
+}
 void reduceDB(struct solver *S, int k)
 { // Removes "less useful" lemmas from DB
   while (S->nLemmas > S->maxLemmas)
@@ -221,9 +292,10 @@ void reduceDB(struct solver *S, int k)
   for (i = S->mem_fixed + 2; i < old_used; i += 3)
   {                          // While the old memory contains lemmas
     int count = 0, head = i; // Get the lemma to which the head is pointing
-    int size = 0;
+    float size = 0;
     float score = 0;
-    int lbd = 0;
+    int *clause = &S->DB[head];
+    int lbd_2 = is_lbd_2(S, clause); // Calculate the LBD of the clause
     while (S->DB[i])
     {
       int lit = S->DB[i++]; // Count the number of literals
@@ -231,6 +303,7 @@ void reduceDB(struct solver *S, int k)
         count++;
       size++;
       score+= S->scores[abs(lit)];
+      
     } // That are satisfied by the current model
     if ( S->config.reduce_p == RED_DEFAULT && count < k)
     {
@@ -243,9 +316,22 @@ void reduceDB(struct solver *S, int k)
     //TODO : choose a good VSIDS ratio
     else if(S->config.reduce_p == RED_VSIDS && S->config.clause_score_ratio <= score/size )
     {
+#if REDUCE_DEBUG 
+      log_message(LOG_LEVEL_DEBUG,"ADDED a clause of score %f and ratio %f\n",score,score/size);
+      print_clause(S,clause);
+#endif
       addClause(S, S->DB + head, i - head, 0);
     }
-    // LBD SCORE  = 2 always keep it ( glucose ) 
+    // Clauses of lbd  = 2 are importants, no matter the policy of reducing , we will conserve them.
+    else if(lbd_2)
+    {
+#if REDUCE_DEBUG 
+      log_message(LOG_LEVEL_DEBUG,"ADDED LBD-2 clause\n");
+      print_clause(S,clause);
+#endif
+      addClause(S, S->DB + head, i - head, 0);
+    }
+    
 
   }
 } // If the latter is smaller than k, add it back
@@ -412,7 +498,7 @@ int *analyze(struct solver *S, int *clause)
         // todo lrb
       }
     }
-    unassign(S, *S->assigned);
+    unassign(S, *S->assigned,1);
   } // Unassign the tail of the stack
 build:;
   int size = 0, lbd = 0, flag = 0;     // Build conflict clause; Empty the clause buffer
@@ -440,13 +526,11 @@ build:;
   S->slow += lbd << 5; // Update the slow moving average
 
   while (S->assigned > S->processed) // Loop over all unprocessed literals
-    unassign(S, *(S->assigned--));   // Unassign all lits between tail & head
-  unassign(S, *S->assigned);         // Assigned now equal to processed
+    unassign(S, *(S->assigned--),1);   // Unassign all lits between tail & head
+  unassign(S, *S->assigned,1);         // Assigned now equal to processed
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
   // sort_variables(S);
   return addClause(S, S->buffer, size, 0);
-  if (S->config.br_p == BR_VSIDS)
-    sort_variables(S);
 } // Add new conflict clause to redundant DB
 
 int propagate(struct solver *S)
@@ -501,6 +585,8 @@ int propagate(struct solver *S)
   } // Assign the conflict clause as a unit
   if (forced)
     S->forced = S->processed; // Set S->forced if applicable
+  if (S->config.br_p == BR_VSIDS)
+    sort_variables(S);
   return SAT;
 } // Finally, no conflict was found
 
@@ -515,7 +601,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->nConflicts = 0;           // Under of conflicts which is used to updates scores
   S->maxLemmas = MAX_LEMMAS;   // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
-  S->decision_counter = 0;
+  S->decision_counter = -1;
   S->config.br_p = BR_CHB;
   S->config.reduce_p = RED_DEFAULT;
   S->config.rest_p = REST_DEFAULT;
@@ -535,7 +621,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->model = getMemory(S, n + 1); // Full assignment of the (Boolean) variables (initially set to false)
   S->scores = (float *)getMemory(S, n + 1);
   S->decision_level = getMemory(S, n + 1); //ADDED
-  for (int i = 0; i <= n; i++) S->decision_level[i] = 0;
+  for (int i = 0; i <= n; i++) S->decision_level[i] = -1;
   S->next = getMemory(S, n + 1);       // Next variable in the heuristic order
   S->prev = getMemory(S, n + 1);       // Previous variable in the heuristic order
   S->buffer = getMemory(S, n);         // A buffer to store a temporary clause
@@ -681,7 +767,7 @@ void unassign_last_decision(struct solver *S)
 {
   int lit = *(--S->assigned);
   if (S->falses[lit] != IMPLIED)
-    unassign(S, lit);
+    unassign(S, lit,1);
 }
 void unassign_all(struct solver *S)
 {
@@ -828,4 +914,25 @@ void set_solver_rest(struct solver *S, enum restart_policy rest)
 void set_solver_red(struct solver *S, enum reduce_policy red)
 {
   S->config.reduce_p = red;
+}
+void log_decision(int lit, int level) {
+    log_message(LOG_LEVEL_DEBUG,"Decide: Literal %d, Decision Level: %d\n", lit, level);
+}
+
+void log_propagation(int lit, int level) {
+    log_message(LOG_LEVEL_DEBUG,"Propagate: Literal %d, Decision Level: %d\n", lit, level);
+}
+
+void log_unassign(int lit, int level) {
+    log_message(LOG_LEVEL_DEBUG,"Unassign: Literal %d, Decision Level: %d\n", lit, level);
+}
+
+void log_conflict_analysis(int lit, int level) {
+    log_message(LOG_LEVEL_DEBUG,"Conflict Analysis: Literal %d, Decision Level: %d\n", lit, level);
+}
+void print_clause(struct solver *S, int *clause) {
+    for (int i = 0; clause[i]; i++) {
+        printf("%d@%d ", clause[i], S->decision_level[abs(clause[i])]);
+    }
+    printf("\n");
 }

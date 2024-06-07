@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/bin/local",
-            "args": ["cnf/uf225-0100.cnf"],
+            "args": ["${workspaceRoot}/cnf/hole10.cnf"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

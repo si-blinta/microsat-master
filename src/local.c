@@ -35,7 +35,9 @@ int solve_luby(struct solver* S,int stop_it,int luby_param)
       if(conflicts % decay_thresh_hold == 0)
           decay(S,0.99);
       if ( conflicts >= luby(luby_param,luby_index) ) {
+#if RESTART_DEBUG        
         printf("restarted after %d conflicts\n",conflicts);
+#endif  
         S->res = 0;
         luby_index++;
         conflicts = 0;
@@ -81,10 +83,11 @@ int main(int argc, char **argv)
   dpu_solver.config.luby_base = 4;*/
   //set_solver_rest(&dpu_solver,REST_ARITH);
   //dpu_solver.config.geo_factor = 1.1;
-  dpu_solver.config.br_p == BR_VSIDS;
-  dpu_solver.config.decay_thresh_hold = 10;
-  dpu_solver.config.reduce_p = RED_SIZE;
+  dpu_solver.config.br_p = BR_VSIDS;
+  dpu_solver.config.decay_thresh_hold = 1;
+  dpu_solver.config.reduce_p = RED_VSIDS;
   dpu_solver.config.clause_size = 20;
+  dpu_solver.config.clause_score_ratio = 600;
   start = clock();
   ret = solve(&dpu_solver,INT32_MAX);
   end = clock();

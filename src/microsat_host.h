@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#define DECISION_DEBUG 0
+#define RESTART_DEBUG 0 
+#define REDUCE_DEBUG 1
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
 #define REDUCE_LIMIT 6
@@ -82,7 +85,7 @@ struct solver
   int decision_counter;
   
 };
-void unassign(struct solver *S, int lit);
+void unassign(struct solver *S, int lit,int flag);
 void restart(struct solver *S);
 void assign(struct solver *S, int *reason, int forced);
 void addWatch(struct solver *S, int lit, int mem);
@@ -119,9 +122,11 @@ int* get_assigned_lits(struct solver S, int* size);
 void reset_solver(struct solver *S);
 int* get_reasons(struct solver S);
 void decay(struct solver *S,float factor);
-
-
-
-
+void reset_decision_levels(struct solver *S);
+void log_decision(int lit, int level) ;
+void log_propagation(int lit, int level);
+void log_unassign(int lit, int level);
+void log_conflict_analysis(int lit, int level);
+void print_clause(struct solver *S,int* clause);
 
 #endif
