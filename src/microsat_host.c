@@ -108,6 +108,8 @@ int solve(struct solver *S, int stop_it)
     {
       // If the last decision caused a conflict
       // printf("new learned clause\n");
+      if(S->config.br_p == BR_VSIDS)
+        sort_variables(S);
       decision = S->head; // Reset the decision heuristic to head
       S->config.conflicts++;
       S->res = 0;
