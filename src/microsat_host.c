@@ -90,6 +90,8 @@ int solve(struct solver *S,int stop_it)
     { 
       // If the last decision caused a conflict
       // printf("new learned clause\n");
+      if(S->config.br_p == BR_VSIDS)
+        sort_variables(S);
       decision = S->head; // Reset the decision heuristic to head
       S->config.conflicts++;
       S->res = 0;
@@ -382,8 +384,6 @@ build:;
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
   //sort_variables(S);
   return addClause(S, S->buffer, size, 0);
-  if(S->config.br_p == BR_VSIDS)
-    sort_variables(S);
 } // Add new conflict clause to redundant DB
 
 int propagate(struct solver *S)
