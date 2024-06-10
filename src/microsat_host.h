@@ -6,7 +6,7 @@
 #include <stdint.h>
 #define DECISION_DEBUG 0
 #define RESTART_DEBUG 0 
-#define REDUCE_DEBUG 0
+#define REDUCE_DEBUG 1
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
 #define REDUCE_LIMIT 6
@@ -38,9 +38,7 @@ enum
 enum branching_policy
 {
   BR_VSIDS,
-  BR_CHB,
-  BR_LRB,
-  BR_RANDOM
+  BR_VMTF,
 };
 
 enum restart_policy {
@@ -54,7 +52,7 @@ enum reduce_policy
 {
   RED_DEFAULT,
   RED_SIZE,
-  RED_VSIDS
+  RED_LBD
 };
 typedef struct
 {
@@ -73,6 +71,7 @@ typedef struct
   int decay_thresh_hold;
   int clause_size;
   float clause_score_ratio;
+  int max_lbd;
 
 }config_t;
 struct solver
@@ -128,5 +127,6 @@ void log_propagation(int lit, int level);
 void log_unassign(int lit, int level);
 void log_conflict_analysis(int lit, int level);
 void print_clause(struct solver *S,int* clause);
+void sort_variables(struct solver *S);
 
 #endif

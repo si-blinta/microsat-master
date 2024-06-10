@@ -88,6 +88,8 @@ int main(int argc, char **argv)
   //dpu_solver.config.reduce_p = RED_VSIDS;
   //dpu_solver.config.clause_size = 20;
   //dpu_solver.config.clause_score_ratio = 600;
+  dpu_solver.config.reduce_p = RED_LBD;
+  dpu_solver.config.max_lbd   = 5;
   start = clock();
   ret = solve(&dpu_solver,INT32_MAX);
   end = clock();

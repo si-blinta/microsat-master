@@ -297,6 +297,9 @@ void reduceDB(struct solver *S, int k)
     float score = 0;
     int *clause = &S->DB[head];
     int lbd_2 = is_lbd_2(S, clause); // Calculate the LBD of the clause
+    int lbd = 0;
+    if(S->config.reduce_p == RED_LBD)
+      lbd = compute_lbd(S,clause);
     while (S->DB[i])
     {
       int lit = S->DB[i++]; // Count the number of literals
@@ -308,22 +311,29 @@ void reduceDB(struct solver *S, int k)
     } // That are satisfied by the current model
     if ( S->config.reduce_p == RED_DEFAULT && count < k)
     {
+#if REDUCE_DEBUG 
+      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on number of assigned literals\n");
+      print_clause(S,clause);
+#endif
       addClause(S, S->DB + head, i - head, 0);
     }
     else if(S->config.reduce_p == RED_SIZE && size <= S->config.clause_size)
     {
-      addClause(S, S->DB + head, i - head, 0);
-    }
-    //TODO : choose a good VSIDS ratio
-    else if(S->config.reduce_p == RED_VSIDS && S->config.clause_score_ratio <= score/size )
-    {
 #if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED a clause of score %f and ratio %f\n",score,score/size);
+      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on size\n");
       print_clause(S,clause);
 #endif
       addClause(S, S->DB + head, i - head, 0);
     }
     // Clauses of lbd  = 2 are importants, no matter the policy of reducing , we will conserve them.
+    else if(S->config.reduce_p == RED_LBD && lbd <= S->config.max_lbd)
+    {
+#if REDUCE_DEBUG 
+      log_message(LOG_LEVEL_DEBUG,"ADDED clause based on LBD (%d)\n",lbd);
+      print_clause(S,clause);
+#endif
+      addClause(S, S->DB + head, i - head, 0);
+    }
     else if(lbd_2)
     {
 #if REDUCE_DEBUG 
@@ -475,7 +485,7 @@ int *analyze(struct solver *S, int *clause)
   S->nConflicts++; // Bump restarts and update the statistic
   while (*clause)
   {
-    if (S->config.br_p == BR_CHB)
+    if (S->config.br_p == BR_VMTF)
       bump(S, *(clause++)); // MARK all literals in the falsified clause
     if (S->config.br_p == BR_VSIDS)
       increment(S, *(clause++));
@@ -492,7 +502,7 @@ int *analyze(struct solver *S, int *clause)
       clause = S->DB + S->reason[abs(*S->assigned)]; // Get the reason and ignore first literal
       while (*clause)
       { // is it also good for VSIDS : incrementing all the variables that are in the clause that caused a conflict ? ask sami
-        if (S->config.br_p == BR_CHB)
+        if (S->config.br_p == BR_VMTF)
           bump(S, *(clause++)); // MARK all literals in the falsified clause
         if (S->config.br_p == BR_VSIDS)
           increment(S, *(clause++));
@@ -600,7 +610,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->maxLemmas = MAX_LEMMAS;   // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
   S->decision_counter = -1;
-  S->config.br_p = BR_CHB;
+  S->config.br_p = BR_VMTF;
   S->config.reduce_p = RED_DEFAULT;
   S->config.rest_p = REST_DEFAULT;
   S->config.conflicts = 0;
