@@ -51,5 +51,6 @@ int main(int argc, char **argv)
   
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
   printf("DPU %lf ms\n",duration);
+  printf("%d\n",dpu_solver.nConflicts);
 
 }
