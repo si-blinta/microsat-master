@@ -38,7 +38,7 @@ void check_and_restart(struct solver *S)
     if (S->fast > (S->slow / 100) * 125)
     {
 #if RESTART_DEBUG    
-      log_message(LOG_LEVEL_DEBUG,"default restart after %d conflicts\n", S->config.conflicts);
+      log_message(LOG_LEVEL_DEBUG,"default restart after %d conflicts", S->config.conflicts);
 #endif
       // Restart logic for default policy
       S->fast = (S->slow / 100) * 125; // 125
@@ -52,7 +52,7 @@ void check_and_restart(struct solver *S)
     if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
     {
 #if RESTART_DEBUG    
-      log_message(LOG_LEVEL_DEBUG,"luby restart after %d conflicts\n", S->config.conflicts);
+      log_message(LOG_LEVEL_DEBUG,"luby restart after %d conflicts", S->config.conflicts);
 #endif
       restart(S); // Restart and update the averages
       S->config.luby_index++;
@@ -66,7 +66,7 @@ void check_and_restart(struct solver *S)
     if (S->config.conflicts >= S->config.geo_max)
     {
 #if RESTART_DEBUG   
-      log_message(LOG_LEVEL_DEBUG,"geo restart after %d conflicts\n", S->config.conflicts);
+      log_message(LOG_LEVEL_DEBUG,"geo restart after %d conflicts", S->config.conflicts);
 #endif 
       restart(S); // Restart and update the averages
       S->config.geo_max *= S->config.geo_factor;
@@ -80,7 +80,7 @@ void check_and_restart(struct solver *S)
     if (S->config.conflicts >= S->config.arith_max)
     {
 #if RESTART_DEBUG   
-      log_message(LOG_LEVEL_DEBUG,"arithmetic restart after %d conflicts\n", S->config.conflicts);
+      log_message(LOG_LEVEL_DEBUG,"arithmetic restart after %d conflicts", S->config.conflicts);
 #endif
       restart(S); // Restart and update the averages
       S->config.arith_max += S->config.arith_reason;
@@ -312,7 +312,7 @@ void reduceDB(struct solver *S, int k)
     if ( S->config.reduce_p == RED_DEFAULT && count < k)
     {
 #if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on number of assigned literals\n");
+      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on number of assigned literals");
       print_clause(S,clause);
 #endif
       addClause(S, S->DB + head, i - head, 0);
@@ -320,7 +320,7 @@ void reduceDB(struct solver *S, int k)
     else if(S->config.reduce_p == RED_SIZE && size <= S->config.clause_size)
     {
 #if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on size\n");
+      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on size");
       print_clause(S,clause);
 #endif
       addClause(S, S->DB + head, i - head, 0);
@@ -329,7 +329,7 @@ void reduceDB(struct solver *S, int k)
     else if(S->config.reduce_p == RED_LBD && lbd <= S->config.max_lbd)
     {
 #if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED clause based on LBD (%d)\n",lbd);
+      log_message(LOG_LEVEL_DEBUG,"ADDED clause based on LBD (%d)",lbd);
       print_clause(S,clause);
 #endif
       addClause(S, S->DB + head, i - head, 0);
@@ -337,7 +337,7 @@ void reduceDB(struct solver *S, int k)
     else if(lbd_2)
     {
 #if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED LBD-2 clause\n");
+      log_message(LOG_LEVEL_DEBUG,"ADDED LBD-2 clause");
       print_clause(S,clause);
 #endif
       addClause(S, S->DB + head, i - head, 0);
@@ -924,19 +924,19 @@ void set_solver_red(struct solver *S, enum reduce_policy red)
   S->config.reduce_p = red;
 }
 void log_decision(int lit, int level) {
-    log_message(LOG_LEVEL_DEBUG,"Decide: Literal %d, Decision Level: %d\n", lit, level);
+    log_message(LOG_LEVEL_DEBUG,"Decide: Literal %d, Decision Level: %d", lit, level);
 }
 
 void log_propagation(int lit, int level) {
-    log_message(LOG_LEVEL_DEBUG,"Propagate: Literal %d, Decision Level: %d\n", lit, level);
+    log_message(LOG_LEVEL_DEBUG,"Propagate: Literal %d, Decision Level: %d", lit, level);
 }
 
 void log_unassign(int lit, int level) {
-    log_message(LOG_LEVEL_DEBUG,"Unassign: Literal %d, Decision Level: %d\n", lit, level);
+    log_message(LOG_LEVEL_DEBUG,"Unassign: Literal %d, Decision Level: %d", lit, level);
 }
 
 void log_conflict_analysis(int lit, int level) {
-    log_message(LOG_LEVEL_DEBUG,"Conflict Analysis: Literal %d, Decision Level: %d\n", lit, level);
+    log_message(LOG_LEVEL_DEBUG,"Conflict Analysis: Literal %d, Decision Level: %d", lit, level);
 }
 void print_clause(struct solver *S, int *clause) {
     for (int i = 0; clause[i]; i++) {
