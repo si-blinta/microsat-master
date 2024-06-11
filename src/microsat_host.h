@@ -70,7 +70,6 @@ typedef struct
   int decay_factor;
   int decay_thresh_hold;
   int clause_size;
-  float clause_score_ratio;
   int max_lbd;
 
 }config_t;

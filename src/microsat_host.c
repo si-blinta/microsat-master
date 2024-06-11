@@ -139,9 +139,6 @@ int solve(struct solver *S, int stop_it)
 #if DECISION_DEBUG
     log_decision(decision, S->decision_level[decision]); // Log decision
 #endif
-    /*printf("Press Enter to continue...");
-    getchar();*/
-    
   }
   return STOPPED;
 } // Decisions have no reason clauses
@@ -353,6 +350,8 @@ void increment(struct solver *S, int lit)
   {
     S->falses[lit] = MARK; // MARK the literal as involved if not a top-level unit
     S->scores[abs(lit)]++;
+    if(S->scores[abs(lit)] < 0.0)
+      printf("overflow %f\n",S->scores[abs(lit)]);
   }
 }
 void bump(struct solver *S, int lit)
@@ -623,7 +622,6 @@ void initCDCL(struct solver *S, int n, int m)
   S->config.decay_factor = 0.99;
   S->config.decay_thresh_hold = 1; // like in minisat
   S->config.clause_size = 2;
-  S->config.clause_score_ratio = 0.5; // TODO NOT FINISHED ( need to be dynamic)
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
   memset(S->DB, 0, MEM_MAX * sizeof(int));
   S->model = getMemory(S, n + 1); // Full assignment of the (Boolean) variables (initially set to false)
