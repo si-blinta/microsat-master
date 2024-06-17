@@ -35,7 +35,7 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets)
   sprintf(command, "make dpu NB_TASKLETS=%d", nb_tasklets);
   system(command);
 }
-static void populate_offsets(uint32_t offsets[11], struct solver S)
+static void populate_offsets(int offsets[13], struct solver S)
 {
   //log_message(LOG_LEVEL_INFO,"populating offsets");
   offsets[0] = (int) (S.model - S.DB);
@@ -49,22 +49,27 @@ static void populate_offsets(uint32_t offsets[11], struct solver S)
   offsets[8] = (int) (S.assigned - S.DB);
   offsets[9] = (int) (S.falses - S.DB);
   offsets[10]= (int) (S.first - S.DB);
+  offsets[11] = (int)((int*)(S.scores) - (S.DB));
+  offsets[12]= (int) (S.decision_level - S.DB);
 }
-static void populate_vars(uint32_t vars[11], struct solver S)
+static void populate_vars(int vars[12], struct solver S)
 {
-  //log_message(LOG_LEVEL_INFO,"populating vars");
-  vars[0] = S.nVars;
-  vars[1] = S.nClauses;
-  vars[2] = S.mem_used;
-  vars[3] = S.mem_fixed;
-  vars[4] = S.maxLemmas;
-  vars[5] = S.nLemmas;
-  vars[6] = S.nConflicts;
-  vars[7] = S.fast;
-  vars[8] = S.slow;
-  vars[9] = S.head;
-  vars[10] = S.res;
+    log_message(LOG_LEVEL_INFO, "Populating vars");
+    vars[0] = S.nVars;
+    vars[1] = S.nClauses;
+    vars[2] = S.mem_used;
+    vars[3] = S.mem_fixed;
+    vars[4] = S.maxLemmas;
+    vars[5] = S.nLemmas;
+    vars[6] = S.nConflicts;
+    vars[7] = S.fast;
+    vars[8] = S.slow;
+    vars[9] = S.head;
+    vars[10] = S.res;
+    vars[11] = S.decision_counter;
 }
+
+
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
 {
   struct solver dpu_solver;
@@ -77,7 +82,7 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   log_message(LOG_LEVEL_INFO,"parsing finished");
   struct dpu_set_t dpu;
   int dpu_ret= UNSAT;
-  int offsets[11];int vars[11];
+  int offsets[13];int vars[12];
   populate_offsets(offsets,dpu_solver);
   populate_vars(vars,dpu_solver);
   log_message(LOG_LEVEL_INFO,"Broadcasting");
@@ -90,7 +95,6 @@ void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
   log_message(LOG_LEVEL_DEBUG,"AFTER LAUNCHING");
   DPU_FOREACH(set,dpu)
   {
-    dpu_log_read(dpu,stdout);
     DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
     if(dpu_ret== SAT)
     {
@@ -127,13 +131,13 @@ void HOST_TOOLS_divide_and_conquer_old(char* filename, struct dpu_set_t set)
   int dpu_ret = UNSAT;
   int unsat_cpt = 0;
   int sat = 0;
-  int offsets[11];int vars[11];
+  uint32_t offsets[13];uint32_t vars[12];
   populate_offsets(offsets,dpu_solver);
   populate_vars(vars,dpu_solver);
   log_message(LOG_LEVEL_INFO,"Broadcasting");
   HOST_TOOLS_send_id(set);
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,12*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,13*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
   clock_t start,end;
   double duration;
@@ -195,14 +199,14 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   log_message(LOG_LEVEL_INFO,"parsing finished");
   int dpu_ret;
   int finish = 0;
-  int offsets[11];int vars[11];
+  int offsets[13];int vars[12];
   populate_offsets(offsets,dpu_solver);
   populate_vars(vars,dpu_solver);
   log_message(LOG_LEVEL_INFO,"Broadcasting");
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,12*sizeof(int),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,13*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
-  free(dpu_solver.DB);
+  DPU_ASSERT(dpu_broadcast_to(set,"config",0,&dpu_solver.config,sizeof(config_t),DPU_XFER_DEFAULT));
   DPU_FOREACH(set,dpu)
   {
     args.restart_policy  = rand() % 4;
@@ -222,6 +226,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
     DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
     DPU_FOREACH(set,dpu)
     { 
+      dpu_log_read(dpu,stdout);
       DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
       if(dpu_ret == SAT)
       {

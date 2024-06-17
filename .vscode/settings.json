@@ -33,6 +33,7 @@
         "divide_conquer.h": "c",
         "stdint.h": "c",
         "microsat_host.h": "c",
-        "random": "c"
+        "random": "c",
+        "microsat_dpu.h": "c"
     }
 }

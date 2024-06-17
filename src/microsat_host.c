@@ -94,7 +94,7 @@ void check_and_restart(struct solver *S)
 }
 int solve(struct solver *S, int stop_it)
 { // Determine satisfiability
-  int decision = S->head;
+  int decision =  S->head;
   S->res = 0; // Initialize the solver
   for (int i = 0; i < stop_it; i++)
   {                               // Main solve loop;
@@ -109,7 +109,9 @@ int solve(struct solver *S, int stop_it)
       // If the last decision caused a conflict
       // printf("new learned clause\n");
       if(S->config.br_p == BR_VSIDS)
+      {
         sort_variables(S);
+      }
       decision = S->head; // Reset the decision heuristic to head
       S->config.conflicts++;
       S->res = 0;
@@ -609,7 +611,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->maxLemmas = MAX_LEMMAS;   // Initial maximum number of learnt clauses  //2000 default
   S->fast = S->slow = 1 << 24; // Initialize the fast and slow moving averages
   S->decision_counter = -1;
-  S->config.br_p = BR_VMTF;
+  S->config.br_p = BR_VSIDS;
   S->config.reduce_p = RED_DEFAULT;
   S->config.rest_p = REST_DEFAULT;
   S->config.conflicts = 0;
@@ -622,6 +624,8 @@ void initCDCL(struct solver *S, int n, int m)
   S->config.decay_factor = 0.99;
   S->config.decay_thresh_hold = 1; // like in minisat
   S->config.clause_size = 2;
+  S->config.max_lbd     = 6;
+  S->res = 0;
   S->DB = (int *)malloc(sizeof(int) * MEM_MAX); // Allocate the initial database
   memset(S->DB, 0, MEM_MAX * sizeof(int));
   S->model = getMemory(S, n + 1); // Full assignment of the (Boolean) variables (initially set to false)

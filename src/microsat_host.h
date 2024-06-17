@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #define DECISION_DEBUG 0
 #define RESTART_DEBUG 0 
 #define REDUCE_DEBUG 0
@@ -11,6 +12,8 @@
 #define MAX_LEARNT_CLAUSES 100
 #define REDUCE_LIMIT 6
 #define MAX_LEMMAS 6000
+
+
 enum
 {
   END = -9,
@@ -67,7 +70,7 @@ typedef struct
   int luby_index;
   int arith_reason;
   int arith_max;
-  int decay_factor;
+  float decay_factor;
   int decay_thresh_hold;
   int clause_size;
   int max_lbd;
@@ -75,13 +78,22 @@ typedef struct
 }config_t;
 struct solver
 { // The variables in the struct are described in the allocate procedure
+  int nVars, nClauses, mem_used, mem_fixed, maxLemmas, nLemmas, nConflicts, head, res, fast, slow,decision_counter;
   config_t config;
-  int *DB, nVars, nClauses, mem_used, mem_fixed, maxLemmas, nLemmas, *buffer, nConflicts, *model,
-      *reason, *falseStack, *falses, *first, *forced, *processed, *assigned, *next, *prev, head, res, fast, slow;
-  float *scores;//For VSIDS.
-  int *decision_level;
-  int decision_counter;
-  
+  int * DB;
+  int * buffer;
+  int * model;
+  int * reason;
+  int * falseStack;
+  int * falses;
+  int * first;
+  int * forced;
+  int * processed;
+  int * assigned;
+  int * next;
+  int * prev;
+  float * scores;
+  int * decision_level;
 };
 void unassign(struct solver *S, int lit,int flag);
 void restart(struct solver *S);

@@ -13,7 +13,7 @@
             "intelliSenseMode": "linux-clang-x64"
         },*/
         {
-            "name": "lomm",
+            "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
                 "/home/lomm/upmem-sdk/**"

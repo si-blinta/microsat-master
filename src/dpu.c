@@ -5,8 +5,9 @@
 /**
  * SOLVER DATA TRANSFER
 */
-__host int dpu_DB_offsets[11];
-__host int dpu_vars[11];
+__host int dpu_DB_offsets[13];
+__host int dpu_vars[12];
+__host config_t config ;
 /*__host int learnt_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
 __host int dpu_mem_used;
 __host int dpu_old_mem_used;*/
@@ -23,18 +24,18 @@ __host portfolio_args dpu_args;
 void populate_solver_context(struct solver *dpu_solver)
 {                     
   dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
-  //printf("id %d | DB + %d\n",me(),me()*MEM_MAX*sizeof(int));
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
   dpu_solver->mem_fixed = dpu_vars[3];
-  dpu_solver->maxLemmas = dpu_vars[4];
+  dpu_solver->maxLemmas = 100;
   dpu_solver->nLemmas = dpu_vars[5];
   dpu_solver->nConflicts = dpu_vars[6];
   dpu_solver->fast = dpu_vars[7];
   dpu_solver->slow = dpu_vars[8];
   dpu_solver->head = dpu_vars[9];
   dpu_solver->res = dpu_vars[10];
+  dpu_solver->decision_counter = dpu_vars[11];
   dpu_solver->model = dpu_solver->DB + dpu_DB_offsets[0];
   dpu_solver->next = dpu_solver->DB + dpu_DB_offsets[1];
   dpu_solver->prev = dpu_solver->DB + dpu_DB_offsets[2];
@@ -46,6 +47,11 @@ void populate_solver_context(struct solver *dpu_solver)
   dpu_solver->assigned = dpu_solver->DB + dpu_DB_offsets[8];
   dpu_solver->falses = dpu_solver->DB + dpu_DB_offsets[9];
   dpu_solver->first = dpu_solver->DB + dpu_DB_offsets[10];
+  dpu_solver->scores= ( float __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[11];
+  dpu_solver->decision_level= dpu_solver->DB + dpu_DB_offsets[12];
+  dpu_solver->config = config;
+  dpu_solver->config.br_p = BR_VSIDS;
+
 }
 /**
  * Initialization flag
@@ -56,88 +62,49 @@ int first ;
 */
 __host int dpu_iterations;
 __host int dpu_id; 
-__host int dpu_to_assign_size;
 
-//Extern
-int conflicts;
-uint32_t seed;
 struct solver dpu_solver;
-static void populate_offsets(int offsets[11], struct solver S)
-{
-  //log_message(LOG_LEVEL_INFO,"populating offsets");
-  offsets[0] = (int) (S.model - S.DB);
-  offsets[1] = (int) (S.next - S.DB);
-  offsets[2] = (int) (S.prev - S.DB);
-  offsets[3] = (int) (S.buffer - S.DB);
-  offsets[4] = (int) (S.reason - S.DB);
-  offsets[5] = (int) (S.falseStack - S.DB);
-  offsets[6] = (int) (S.forced - S.DB);
-  offsets[7] = (int) (S.processed - S.DB);
-  offsets[8] = (int) (S.assigned - S.DB);
-  offsets[9] = (int) (S.falses - S.DB);
-  offsets[10]= (int) (S.first - S.DB);
-}
-static void populate_vars(int vars[11], struct solver S)
-{
-  //log_message(LOG_LEVEL_INFO,"populating vars");
-  vars[0] = S.nVars;
-  vars[1] = S.nClauses;
-  vars[2] = S.mem_used;
-  vars[3] = S.mem_fixed;
-  vars[4] = S.maxLemmas;
-  vars[5] = S.nLemmas;
-  vars[6] = S.nConflicts;
-  vars[7] = S.fast;
-  vars[8] = S.slow;
-  vars[9] = S.head;
-  vars[10] = S.res;
-}
 int main()
 {
- seed = dpu_args.seed;
   if(first == 0)
   {
     populate_solver_context(&dpu_solver);
     first = 1;
   }
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
+  dpu_ret = solve(&dpu_solver,dpu_iterations);
   if(dpu_ret == SAT)
   {
     printf("[DPU] SOLVED using ");
     switch (dpu_args.restart_policy)
     {
-    case FIXED:
+    case REST_ARITH:
        printf("FIXED RESTART\n");
       break;
-    case DEFAULT:
+    case REST_DEFAULT:
        printf("DEFAULT RESTART\n");
       break; 
-    case RANDOM:
+    case REST_LUBY:
        printf("RANDOM RESTART\n");
       break; 
     default:
       break;
     }
-    show_result(dpu_solver);
     return SAT;
   }
   if(dpu_ret == UNSAT)
   { 
     printf("[DPU] SOLVED using ");
-    switch (dpu_args.restart_policy)
+    switch (dpu_solver.config.rest_p)
     {
-    case FIXED:
+    case REST_ARITH:
        printf("FIXED RESTART\n");
       break;
-    case DEFAULT:
+    case REST_DEFAULT:
        printf("DEFAULT RESTART\n");
-      break;
-    case RANDOM:
-       printf("RANDOM RESTART\n");
-      break;
-    case LUBY:
+      break; 
+    case REST_LUBY:
        printf("LUBY RESTART\n");
-      break;  
+      break; 
     default:
       break;
     }

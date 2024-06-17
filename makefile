@@ -13,10 +13,10 @@ clean:
 	@echo "Cleaned"
 
 dpu: src/dpu.c src/microsat_dpu.c src/utils.c
-	@$(DPU-CC) -DNR_TASKLETS=$(NB_TASKLETS) -DDPU -o bin/dpu src/dpu.c src/microsat.c src/utils.c
+	@$(DPU-CC) -DNR_TASKLETS=$(NB_TASKLETS) -DDPU -o bin/dpu src/dpu.c src/microsat_dpu.c src/utils.c
 	@echo "Compiled DPU with $(NB_TASKLETS) Tasklets"
 
 host: src/host.c src/microsat_host.c src/hostTools.c src/log.c src/utils.c 
-	@$(HOST-CC) $(HOST-CFLAGS) -g src/host.c src/microsat.c src/hostTools.c src/log.c src/utils.c -o bin/host $(HOST-LIBS)
+	@$(HOST-CC) $(HOST-CFLAGS) -g src/host.c src/microsat_host.c src/hostTools.c src/log.c src/utils.c -o bin/host $(HOST-LIBS)
 	@echo "Compiled HOST"
 	
