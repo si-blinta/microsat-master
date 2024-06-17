@@ -32,5 +32,4 @@ typedef struct
 
 
 
-
 #endif //UTILS_H

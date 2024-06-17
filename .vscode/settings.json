@@ -34,6 +34,11 @@
         "stdint.h": "c",
         "microsat_host.h": "c",
         "random": "c",
-        "microsat_dpu.h": "c"
+        "microsat_dpu.h": "c",
+        "defs.h": "c",
+        "macro_utils.h": "c",
+        "dpufault.h": "c",
+        "sysdef.h": "c",
+        "attributes.h": "c"
     }
 }

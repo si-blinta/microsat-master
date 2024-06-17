@@ -42,6 +42,7 @@ enum branching_policy
 {
   BR_VSIDS,
   BR_VMTF,
+  BR_CHB
 };
 
 enum restart_policy {
@@ -74,6 +75,11 @@ typedef struct
   int decay_thresh_hold;
   int clause_size;
   int max_lbd;
+  float* Q;
+  int* plays;
+  int* lastConflict;
+  float alpha;
+  int numConflicts;
 
 }config_t;
 struct solver
@@ -94,6 +100,8 @@ struct solver
   int * prev;
   float * scores;
   int * decision_level;
+
+
 };
 void unassign(struct solver *S, int lit,int flag);
 void restart(struct solver *S);

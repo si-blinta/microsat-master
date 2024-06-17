@@ -188,7 +188,6 @@ void HOST_TOOLS_divide_and_conquer_old(char* filename, struct dpu_set_t set)
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 {
   struct dpu_set_t dpu;
-  portfolio_args args;
   struct solver dpu_solver;
   int ret = parse(&dpu_solver,filename);
   if(ret == UNSAT)
@@ -206,32 +205,32 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,12*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,13*sizeof(int),DPU_XFER_DEFAULT));
   DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"config",0,&dpu_solver.config,sizeof(config_t),DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(set,"config",0,&dpu_solver.config,sizeof(config_t)-sizeof(float*)-2*sizeof(int*),DPU_XFER_DEFAULT));
   DPU_FOREACH(set,dpu)
-  {
-    args.restart_policy  = rand() % 4;
-    args.min_thresh_hold = rand() % 500 + 5;
-    args.seed            = rand() % NB_DPU + 1;
-    //log_message(LOG_LEVEL_DEBUG,"portfolio : %f | %d | %d\n",args.factor,args.restart_policy,args.min_thresh_hold);
-    DPU_ASSERT(dpu_copy_to(dpu,"dpu_args",0,&args,sizeof(args)));
+  { //todo get good combinations
+    dpu_solver.config.br_p  = rand() % 2;
+    dpu_solver.config.rest_p  = rand() % 4;
+    dpu_solver.config.reduce_p  = rand() % 3;
+    
+    DPU_ASSERT(dpu_copy_to(dpu,"config",0,&dpu_solver.config,sizeof(config_t)-sizeof(float*)-2*sizeof(int*)));
   }
   clock_t start,end;
   double duration;
   start = clock();
   while(!finish)
   {
-    int iterations = rand()%1000 + 500;
+    int iterations = rand()%1000 + 500;   // luby
     DPU_ASSERT(dpu_broadcast_to(set,"dpu_iterations",0,&iterations,sizeof(int),DPU_XFER_DEFAULT));
     log_message(LOG_LEVEL_INFO,"Launching with %d iterations",iterations);
     DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
     DPU_FOREACH(set,dpu)
     { 
-      dpu_log_read(dpu,stdout);
       DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
       if(dpu_ret == SAT)
       {
+        DPU_ASSERT(dpu_copy_from(dpu,"config",0,&dpu_solver.config,sizeof(int)));
         log_message(LOG_LEVEL_INFO,"DPU SAT");
-        dpu_log_read(dpu,stdout);
+        log_config(dpu_solver.config);
         finish = 1;
         break;
       }
@@ -239,7 +238,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
       {
         log_message(LOG_LEVEL_INFO,"DPU UNSAT");
         finish = 1;
-        dpu_log_read(dpu,stdout);
+        log_config(dpu_solver.config);
         break;
       }
     }
@@ -294,3 +293,52 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
     DPU_ASSERT(dpu_broadcast_to(set, "dpu_lc_count", 0, &learnt_clauses_per_launch, sizeof(int), DPU_XFER_DEFAULT));
 #endif //SHARING
 */
+
+void log_config(config_t config)
+{
+    printf("Branching heurstic used ");
+    switch (config.br_p)
+    {
+    case BR_VMTF:
+        printf("VMTF : Variable move to the front\n");
+        break;
+    case BR_VSIDS:
+        printf("VSIDS : Variable state decaying sum : decay factor ->%f |decay thresh hold -> %d conflicts\n",config.decay_factor,config.decay_thresh_hold);
+        break;
+    default:
+        break;
+    }
+    printf("Restart policy used ");
+    switch (config.rest_p)
+    {
+    case REST_DEFAULT:
+        printf("DEFAULT : Exponential moving averages ( slow - fast )\n");
+        break;
+    case REST_GEO:
+        printf("GEOMETRIC : reason ->%f | thresh hold -> %d conflicts\n",config.geo_factor,config.geo_max);
+        break;
+    case REST_LUBY:
+        printf("LUBY: Luby's Series : base ->%d\n",config.luby_base);
+        break;
+    default:
+        break;
+    }
+    printf("Clause suppression mecanism used ");
+    switch (config.rest_p)
+    {
+    case RED_DEFAULT:
+        printf("DEFAULT : Clauses that have literals unassigned < %d\n",REDUCE_LIMIT);
+        break;
+    case RED_SIZE:
+        printf("SIZE : Clauses that have size > %d \n",config.clause_size);
+        break;
+    case RED_LBD:
+        printf("LBD: Clauses with LBD > %d\n",config.max_lbd);
+        break;
+    default:
+        break;
+    }
+    printf("Learnt clauses with LBD <= 2 and clauses with size = 2 are always conserved\n");
+
+
+}

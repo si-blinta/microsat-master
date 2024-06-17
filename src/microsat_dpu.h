@@ -11,7 +11,7 @@
 #define MAX_LEMMAS 2000
 #define DECISION_DEBUG 0
 #define RESTART_DEBUG 0
-#define REDUCE_DEBUG 1
+#define REDUCE_DEBUG 0
 #define MAX_LBD   10
 #define ANSI_COLOR_RED "\x1b[31m"
 #define ANSI_COLOR_GREEN "\x1b[32m"
@@ -51,6 +51,7 @@ enum branching_policy
 {
   BR_VSIDS,
   BR_VMTF,
+  BR_CHB
 };
 
 enum restart_policy {
@@ -83,6 +84,11 @@ typedef struct
   int decay_thresh_hold;
   int clause_size;
   int max_lbd;
+  float* Q;
+  int* plays;
+  int* lastConflict;
+  float alpha;
+  int numConflicts;
 
 }config_t;
 struct solver
@@ -134,4 +140,5 @@ int solve_luby(struct solver* S,int stop_it,int luby_param);
 void reset_solver(struct solver *S);
 int* get_reasons(struct solver S);
 void reset_decision_levels(struct solver *S);
+void log_config(struct solver S);
 #endif 

@@ -1,0 +1,4 @@
+[15:23:25] [[32mINFO[0m] parsing finished
+[15:23:25] [[32mINFO[0m] UNSAT
+DPU 7.184000 ms
+663

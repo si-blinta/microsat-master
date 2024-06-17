@@ -2,6 +2,9 @@
 #include "log.h"
 #include <stdint.h>
 #include "time.h"
+#define SIZE_OF_CONFIG_T(nVars) \
+    (4 * 14 + 8 * 3 + ((nVars + 1) * 4) * 2 + (nVars + 1) * 4)
+
 void print_decision_list(struct solver* S) {
     int current = S->head;
     while (current != 0) { // traverse the list until the end of the list is reached
@@ -27,8 +30,8 @@ int main(int argc, char **argv)
   dpu_solver.config.luby_base = 4;*/
   //set_solver_rest(&dpu_solver,REST_ARITH);
   //dpu_solver.config.geo_factor = 1.1;
-  dpu_solver.config.br_p = BR_VSIDS;
-  dpu_solver.config.decay_thresh_hold = 1;
+  dpu_solver.config.br_p = BR_CHB;
+  //dpu_solver.config.decay_thresh_hold = 1;
   //dpu_solver.config.reduce_p = RED_VSIDS;
   //dpu_solver.config.clause_size = 20;
   //dpu_solver.config.clause_score_ratio = 600;
@@ -52,5 +55,6 @@ int main(int argc, char **argv)
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
   printf("DPU %lf ms\n",duration);
   printf("%d\n",dpu_solver.nConflicts);
+  printf("%d\n",SIZE_OF_CONFIG_T(dpu_solver.nVars));
 
 }

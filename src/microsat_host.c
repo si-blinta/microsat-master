@@ -1,8 +1,63 @@
 #include "microsat_host.h"
 #include "log.h"
+
+void initialize_chb(struct solver *S, int num_vars) {
+  log_message(LOG_LEVEL_DEBUG, "Initializing CHB with %d variables", num_vars);
+  S->config.lastConflict = (int *)malloc((num_vars+1) * sizeof(int));
+  S->config.Q = (float *)malloc((num_vars+1) * sizeof(float));
+  S->config.plays = (int *)malloc((num_vars+1) * sizeof(int));
+  for (int i = 0; i < num_vars+1; i++) {
+    S->config.lastConflict[i] = 0;
+    S->config.Q[i] = 0.0;
+  }
+  
+  S->config.alpha = 0.4;
+  S->config.numConflicts = 0;
+
+  log_message(LOG_LEVEL_DEBUG, "CHB initialization completed");
+}
+
+void update_chb(struct solver *S, int var, float multiplier) {
+  float reward = multiplier / (S->config.numConflicts - S->config.lastConflict[var] + 1);
+  S->config.Q[var] = (1.0 - S->config.alpha) * S->config.Q[var] + S->config.alpha * reward;
+
+}
+
+
+int pick_branching_variable_chb(struct solver *S) {
+  int best_var = 0;
+  float best_score = -1.0;
+  for (int i = 1; i < S->nVars+1; i++) {
+    if (!S->falses[i] && !S->falses[-i] && S->config.Q[i] > best_score) {
+      best_score = S->config.Q[i];
+      best_var = i;
+    }
+  }
+  return best_var;
+}
+
+
+
+void handle_conflict(struct solver *S, int *conflict_clause) {
+  log_message(LOG_LEVEL_DEBUG, "Handling conflict with clause: ");
+  print_clause(S, conflict_clause);
+
+  for (int i = 0; conflict_clause[i] != 0; i++) {
+    int var = abs(conflict_clause[i]);
+    update_chb(S, var, 1.0);
+    S->config.lastConflict[var] = S->config.numConflicts;
+  }
+  S->config.numConflicts++;
+  if (S->config.alpha > 0.06) {
+    S->config.alpha -= 0.000001;
+  }
+  log_message(LOG_LEVEL_DEBUG, "Conflict handled. numConflicts: %d, alpha: %.6f", S->config.numConflicts, S->config.alpha);
+}
+
+
 int power(int base, int exponent)
 {
-  double result = 1.0;
+  float result = 1.0;
   for (int i = 0; i < exponent; i++)
   {
     result *= base;
@@ -92,58 +147,77 @@ void check_and_restart(struct solver *S)
     break;
   }
 }
-int solve(struct solver *S, int stop_it)
-{ // Determine satisfiability
-  int decision =  S->head;
-  S->res = 0; // Initialize the solver
-  for (int i = 0; i < stop_it; i++)
-  {                               // Main solve loop;
-    int old_nLemmas = S->nLemmas; // Store nLemmas to see whether propagate adds lemmas
-    // printf("propagating\n");
-    if (propagate(S) == UNSAT)
+int decide(struct solver* S,int decision)
+{
+  if(S->config.br_p == BR_VMTF)
     {
-      return UNSAT; // Propagation returns UNSAT for a root level conflict
-    }
-    if (S->nLemmas > old_nLemmas)
-    {
-      // If the last decision caused a conflict
-      // printf("new learned clause\n");
-      if(S->config.br_p == BR_VSIDS)
-      {
-        sort_variables(S);
+      while (S->falses[decision] || S->falses[-decision])
+      { // As long as the temporay decision is assigned
+        decision = S->prev[decision];
       }
-      decision = S->head; // Reset the decision heuristic to head
+      return decision;
+    }
+  else if(S->config.br_p == BR_VSIDS)
+    {
+      int highest_score_var = 0;  // Variable with the highest score
+      float highest_score = -1.0f;  // Initialize to a low value
+
+      // Loop through all variables to find the unassigned one with the highest score
+      for (int var = 1; var <= S->nVars; var++) {
+          if (S->falses[var] == 0 && S->falses[-var] == 0) {  // Check if the variable is unassigned
+              if (S->scores[var] > highest_score) {  // Check if current variable has a higher score than the current highest
+                  highest_score = S->scores[var];
+                  highest_score_var = var;
+              }
+          }
+      }
+
+      if (highest_score_var == 0) {
+          // No unassigned variables found, return 0 or handle it as per your solver's design
+          return 0;
+      }
+      return highest_score_var;
+    }
+  else if (S->config.br_p == BR_CHB)
+  {
+    return pick_branching_variable_chb(S);
+ 
+  }
+}
+int solve(struct solver *S, int stop_it) {
+  int decision = decide(S,S->head);
+  S->res = 0;
+  for (int i = 0; i < stop_it; i++) {
+    int old_nLemmas = S->nLemmas;
+    if (propagate(S) == UNSAT) {
+      return UNSAT;
+    }
+    if (S->nLemmas > old_nLemmas) {
+      if (S->config.alpha > 0.06) {
+        S->config.alpha -= 0.000001;
+      }
       S->config.conflicts++;
       S->res = 0;
-      if (S->config.br_p == BR_VSIDS)
-      {
-        if (S->config.conflicts % S->config.decay_thresh_hold == 0)
-          decay(S, 0.90);
-      }
+      if(S->config.br_p == BR_VMTF)
+        decision = S->head;
       check_and_restart(S);
+      
     }
-    while (S->falses[decision] || S->falses[-decision])
-    { // As long as the temporay decision is assigned
-      decision = S->prev[decision];
-      // printf("decision = %d\n",S->prev[decision]);                // Replace it with the next variable in the decision list
+    decision = decide(S,decision);
+    if (decision == 0) {
+      return SAT;
     }
-    if (decision == 0)
-    {
-      return SAT; // If the end of the list is reached, then a solution is found
-    }
-    decision = S->model[decision] ? decision : -decision; // Otherwise, assign the decision variable based on the model
-    S->falses[-decision] = 1;                             // Assign the decision literal to true (change to IMPLIED-1?)
-    *(S->assigned++) = -decision;                         // And push it on the assigned stack
+    decision = S->model[decision] ? decision : -decision;
+    S->falses[-decision] = 1;
+    *(S->assigned++) = -decision;
     decision = abs(decision);
     S->reason[decision] = 0;
     S->decision_counter++;
     S->decision_level[decision] = S->decision_counter;
-#if DECISION_DEBUG
-    log_decision(decision, S->decision_level[decision]); // Log decision
-#endif
   }
   return STOPPED;
-} // Decisions have no reason clauses
+}
+
 
 void assign_decision(struct solver *S, int lit)
 {
@@ -486,7 +560,7 @@ int *analyze(struct solver *S, int *clause)
   S->nConflicts++; // Bump restarts and update the statistic
   while (*clause)
   {
-    if (S->config.br_p == BR_VMTF)
+    if (S->config.br_p == BR_VMTF || S->config.br_p == BR_CHB )
       bump(S, *(clause++)); // MARK all literals in the falsified clause
     if (S->config.br_p == BR_VSIDS)
       increment(S, *(clause++));
@@ -503,7 +577,7 @@ int *analyze(struct solver *S, int *clause)
       clause = S->DB + S->reason[abs(*S->assigned)]; // Get the reason and ignore first literal
       while (*clause)
       { // is it also good for VSIDS : incrementing all the variables that are in the clause that caused a conflict ? ask sami
-        if (S->config.br_p == BR_VMTF)
+        if (S->config.br_p == BR_VMTF || S->config.br_p == BR_CHB )
           bump(S, *(clause++)); // MARK all literals in the falsified clause
         if (S->config.br_p == BR_VSIDS)
           increment(S, *(clause++));
@@ -578,6 +652,7 @@ int propagate(struct solver *S)
         if (!S->falses[clause[0]])
         { // If the other watched literal is falsified,
           assign(S, clause, forced);
+          update_chb(S,abs(clause[0]),0.9);
         } // A unit clause is found, and the reason is set
         
         else
@@ -588,7 +663,12 @@ int propagate(struct solver *S)
           if (!lemma[1])
             forced = 1; // In case a unit clause is found, set forced flag
           assign(S, lemma, forced);
-         
+          S->config.numConflicts++;
+          for (int i = 0; lemma[i] != 0; i++) 
+          {
+            int var = abs(lemma[i]);
+            S->config.lastConflict[var] = S->config.numConflicts;
+          }
           break;
         }
       }
@@ -601,6 +681,7 @@ int propagate(struct solver *S)
 
 void initCDCL(struct solver *S, int n, int m)
 {
+  initialize_chb(S,n);
   if (n < 1)
     n = 1;                     // The code assumes that there is at least one variable
   S->nVars = n;                // Set the number of variables
@@ -650,13 +731,13 @@ void initCDCL(struct solver *S, int n, int m)
   for (i = 1; i <= n; i++)
   { // Initialize the main datastructes:
     S->prev[i] = i - 1;
-    S->next[i - 1] = i;                             // the double-linked list for variable-move-to-front,
+    S->next[i - 1] = i;                             // the float-linked list for variable-move-to-front,
     S->model[i] = S->falses[-i] = S->falses[i] = 0; // the model (phase-saving), the false array,
     S->first[i] = S->first[-i] = END;
     S->scores[i] = 0;
   } // and first (watch pointers).
   S->head = n;
-} // Initialize the head of the double-linked list
+} // Initialize the head of the float-linked list
 
 static void read_until_new_line(FILE *input)
 {

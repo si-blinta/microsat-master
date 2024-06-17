@@ -1,4 +1,21 @@
 #include "microsat_dpu.h"
+void update_chb(struct solver *S, int var, float multiplier) {
+  float reward = multiplier / (S->config.numConflicts - S->config.lastConflict[var] + 1);
+  S->config.Q[var] = (1.0 - S->config.alpha) * S->config.Q[var] + S->config.alpha * reward;
+}
+
+int pick_branching_variable_chb(struct solver *S) {
+  int best_var = 0;
+  float best_score = -1.0;
+  for (int i = S->nVars+1; i > 0; i--) {
+    if (!S->falses[i] && !S->falses[-i] && S->config.Q[i] > best_score) {
+      best_score = S->config.Q[i];
+      best_var = i;
+    }
+  }
+  return best_var;
+}
+
 void log_decision(int lit, int level) {
     printf(LOG_LEVEL_DEBUG"Decide: Literal %d, Decision Level: %d\n", lit, level);
 }
@@ -328,86 +345,6 @@ void bump(struct solver *S, int lit)
     }
   }
 } // Make var the new head
-int getMiddle(struct solver *S, int head)
-{
-  int slow = head;
-  int fast = S->prev[head];
-
-  // Move fast by 2 and slow by 1
-  // Finally slow will point to middle node
-  while (fast != 0)
-  {
-    fast = S->prev[fast];
-    if (fast != 0)
-    {
-      slow = S->prev[slow];
-      fast = S->prev[fast];
-    }
-  }
-  return slow;
-}
-
-// Function to merge two halves
-int sortedMerge(struct solver *S, int left, int right)
-{
-  if (left == 0)
-    return right;
-  if (right == 0)
-    return left;
-
-  // Pick either a or b, and recur
-  if (S->scores[left] >= S->scores[right])
-  {
-    S->prev[left] = sortedMerge(S, S->prev[left], right);
-    S->next[S->prev[left]] = left;
-    S->next[left] = 0; // Might be the last element now
-    return left;
-  }
-  else
-  {
-    S->prev[right] = sortedMerge(S, left, S->prev[right]);
-    S->next[S->prev[right]] = right;
-    S->next[right] = 0; // Might be the last element now
-    return right;
-  }
-}
-
-// Function to do merge sort
-void mergeSort(struct solver *S, int * headRef)
-{
-  int head = *headRef;
-  if ((head == 0) || (S->prev[head] == 0))
-    return;
-
-  // Get the middle of the list
-  int middle = getMiddle(S, head);
-
-  // Split the list into two halves
-  int left = head;
-  int right = S->prev[middle];
-  S->prev[middle] = 0;
-
-  // Recursively sort the halves
-  mergeSort(S, &left);
-  mergeSort(S, &right);
-
-  // Merge the sorted halves
-  *headRef = sortedMerge(S, left, right);
-}
-void sort_variables(struct solver *S)
-{
-  mergeSort(S, &S->head);
-
-  // Correctly assign next pointers from prev
-  int current = S->head;
-  int last = 0;
-  while (current != 0)
-  {
-    S->next[current] = last;
-    last = current;
-    current = S->prev[current];
-  }
-}
 void decay(struct solver *S, float factor)
 {
   for (int j = 1; j < S->nVars + 1; j++)
@@ -442,7 +379,7 @@ int __mram_ptr* analyze(struct solver *S, int __mram_ptr *clause)
   S->nConflicts++; // Bump restarts and update the statistic
   while (*clause)
   {
-    if (S->config.br_p == BR_VMTF)
+    if (S->config.br_p == BR_VMTF || S->config.br_p == BR_CHB)
       bump(S, *(clause++)); // MARK all literals in the falsified clause
     if (S->config.br_p == BR_VSIDS)
       increment(S, *(clause++));
@@ -459,7 +396,7 @@ int __mram_ptr* analyze(struct solver *S, int __mram_ptr *clause)
       clause = S->DB + S->reason[abs(*S->assigned)]; // Get the reason and ignore first literal
       while (*clause)
       { // is it also good for VSIDS : incrementing all the variables that are in the clause that caused a conflict ? ask sami
-        if (S->config.br_p == BR_VMTF)
+        if (S->config.br_p == BR_VMTF || S->config.br_p == BR_CHB)
           bump(S, *(clause++)); // MARK all literals in the falsified clause
         if (S->config.br_p == BR_VSIDS)
           increment(S, *(clause++));
@@ -499,8 +436,17 @@ build:;
   S->buffer[size] = 0;               // Terminate the buffer (and potentially print clause)
   return addClause(S, S->buffer, size, 0);
 } // Add new conflict clause to redundant DB
-int decide(struct solver *S,int decision) {
-    if(S->config.br_p == BR_VSIDS)
+int decide(struct solver* S,int decision)
+{
+  if(S->config.br_p == BR_VMTF)
+    {
+      while (S->falses[decision] || S->falses[-decision])
+      { // As long as the temporay decision is assigned
+        decision = S->prev[decision];
+      }
+      return decision;
+    }
+  else if(S->config.br_p == BR_VSIDS)
     {
       int highest_score_var = 0;  // Variable with the highest score
       float highest_score = -1.0f;  // Initialize to a low value
@@ -521,20 +467,16 @@ int decide(struct solver *S,int decision) {
       }
       return highest_score_var;
     }
-    else if(S->config.br_p == BR_VMTF)
-    {
-      while (S->falses[decision] || S->falses[-decision])
-      { // As long as the temporay decision is assigned
-        decision = S->prev[decision];
-      }
-      return decision;
-    }
     return 0;
+  /*else if (S->config.br_p == BR_CHB)
+  {
+    return pick_branching_variable_chb(S);
+  }*/
 }
 
 int solve(struct solver *S, int stop_it)
 { // Determine satisfiability
-  int decision = S->head;
+  int decision = decide(S,S->head);
   S->res = 0; // Initialize the solver
   for (int i = 0; i < stop_it; i++)
   {                               // Main solve loop;
@@ -546,11 +488,8 @@ int solve(struct solver *S, int stop_it)
     }
     if (S->nLemmas > old_nLemmas)
     {
-      // If the last decision caused a conflict
-      // printf("new learned clause\n");
-      /*if(S->config.br_p == BR_VSIDS)
-        sort_variables(S);*/
-      decision = S->head; // Reset the decision heuristic to head
+      if(S->config.br_p == BR_VMTF)
+        decision = S->head;
       S->config.conflicts++;
       S->res = 0;
       if (S->config.br_p == BR_VSIDS)
@@ -558,6 +497,10 @@ int solve(struct solver *S, int stop_it)
         if (S->config.conflicts % S->config.decay_thresh_hold == 0)
           decay(S, 0.90);
       }
+      /*else if(S->config.br_p == BR_CHB)
+        if (S->config.alpha > 0.06) {
+          S->config.alpha -= 0.000001;
+      }*/
       check_and_restart(S);
     }
     decision = decide(S,decision);
@@ -613,6 +556,7 @@ int propagate(struct solver *S)
         if (!S->falses[clause[0]])
         { // If the other watched literal is falsified,
           assign(S, clause, forced);
+          //update_chb(S,abs(clause[0]),0.9); // todo : divide by 0.9 propagated units if a conflict occured 
         } // A unit clause is found, and the reason is set
         else
         {
@@ -622,6 +566,12 @@ int propagate(struct solver *S)
           if (!lemma[1])
             forced = 1; // In case a unit clause is found, set forced flag
           assign(S, lemma, forced);
+          S->config.numConflicts++;
+          for (int i = 0; lemma[i] != 0; i++) 
+          {
+            int var = abs(lemma[i]);
+            S->config.lastConflict[var] = S->config.numConflicts;
+          }
           break;
         }
       }

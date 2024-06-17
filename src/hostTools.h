@@ -3,9 +3,11 @@
 #define NB_DPU 1024
 #include <dpu.h>
 #include <assert.h>
+#include "microsat_host.h"
 #define roundup(n, m) ((n / m) * m + m)
 #define rounddown(n, m) ((n / m) * m)
-
+#define SIZE_OF_CONFIG_T(nVars) \
+    (4 * 14 + 8 * 3 + ((nVars + 1) * 4) * 2 + (nVars + 1) * 4)
 typedef struct
 {
     struct dpu_set_t dpu;
@@ -58,4 +60,5 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set);
+void log_config(config_t config);
 #endif // HOST_TOOLS_H
