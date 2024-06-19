@@ -114,13 +114,12 @@ int branching_vsids(struct solver *S, int decision)
   int highest_score_var = 0;   // Variable with the highest score
   float highest_score = -1.0f; // Initialize to a low value
 
-  // Loop through all variables to find the unassigned one with the highest score
   for (int var = 1; var <= S->nVars; var++)
   {
     if (S->falses[var] == 0 && S->falses[-var] == 0)
-    { // Check if the variable is unassigned
+    {
       if (S->scores[var] > highest_score)
-      { // Check if current variable has a higher score than the current highest
+      {
         highest_score = S->scores[var];
         highest_score_var = var;
       }
@@ -129,7 +128,7 @@ int branching_vsids(struct solver *S, int decision)
 
   if (highest_score_var == 0)
   {
-    // No unassigned variables found, return 0 or handle it as per your solver's design
+
     return 0;
   }
   return highest_score_var;
@@ -210,8 +209,6 @@ int power(int base, int exponent)
 int luby(int y, int x)
 {
 
-  // Find the finite subsequence that contains index 'x', and the
-  // size of that subsequence:
   int size, seq;
   for (size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1)
     ;
@@ -253,11 +250,11 @@ void reset_decision_levels(struct solver *S)
   S->decision_counter = 0;
 }
 void restart(struct solver *S)
-{ // Perform a restart (i.e., unassign all variables)
+{
   while (S->assigned > S->forced)
     unassign(S, *(--S->assigned), 0); // Remove all unforced false lits from falseStack
   S->processed = S->forced;
-} // Reset the processed pointer
+}
 void assign(struct solver *S, int __mram_ptr *reason, int forced)
 {                                                  // Make the first literal of the reason true
   int lit = reason[0];                             // Let lit be the first ltieral in the reason
