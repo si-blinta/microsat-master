@@ -3,60 +3,7 @@
 #include "utils.h"
 #include "mram.h"
 #include <alloc.h>
-void log_config(config_t config)
-{
-    printf("c Branching heurstic used ");
-    switch (config.br_p)
-    {
-    case BR_VMTF:
-        printf("c VMTF : Variable move to the front\n");
-        break;
-    case BR_VSIDS:
-        printf("c VSIDS : Variable state decaying sum : decay factor ->%f |decay thresh hold -> %d conflicts\n",config.decay_factor,config.decay_thresh_hold);
-        break;
-    case BR_CHB:
-        printf("c CHB : Conflict history based branching \n");
-        break;
-    default:
-        break;
-    }
-    printf("c Restart policy used ");
-    switch (config.rest_p)
-    {
-    case REST_DEFAULT:
-        printf("c DEFAULT : Exponential moving averages ( slow - fast )\n");
-        break;
-    case REST_GEO:
-        printf("c GEOMETRIC : reason ->%f | thresh hold -> %d conflicts\n",config.geo_factor,config.geo_max);
-        break;
-    case REST_LUBY:
-        printf("c LUBY: Luby's Series : base ->%d\n",config.luby_base);
-        break;
-    case REST_ARITH:
-        printf("c ARITHMETIC: Arithmetic Series : reason ->%d\n",config.arith_reason);
-        break;
-    default:
-        break;
-    }
-    printf("c Clause suppression mecanism used ");
-    switch (config.rest_p)
-    {
-    case RED_DEFAULT:
-        printf("c DEFAULT : Clauses that have literals unassigned < %d\n",REDUCE_LIMIT);
-        break;
-    case RED_SIZE:
-        printf("c SIZE : Clauses that have size > %d \n",config.clause_size);
-        break;
-    case RED_LBD:
-        printf("c LBD: Clauses with LBD > %d\n",config.max_lbd);
-        break;
-    default:
-        break;
-    }
-    printf("c Learnt clauses with LBD <= 2 and clauses with size = 2 are always conserved\n");
 
-
-}
 /**
  * SOLVER DATA TRANSFER
 */
