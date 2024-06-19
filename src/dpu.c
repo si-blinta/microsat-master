@@ -3,6 +3,23 @@
 #include "utils.h"
 #include "mram.h"
 #include <alloc.h>
+void print_config(const config_t* config) {
+    printf("Branching Policy: %d\n", config->br_p);
+    printf("Restart Policy: %d\n", config->rest_p);
+    printf("Reduce Policy: %d\n", config->reduce_p);
+    printf("Conflicts: %d\n", config->conflicts);
+    printf("Geo Factor: %f\n", config->geo_factor);
+    printf("Geo Max: %d\n", config->geo_max);
+    printf("Luby Base: %d\n", config->luby_base);
+    printf("Luby Index: %d\n", config->luby_index);
+    printf("Arith Reason: %d\n", config->arith_reason);
+    printf("Arith Max: %d\n", config->arith_max);
+    printf("Decay Factor: %f\n", config->decay_factor);
+    printf("Decay Threshold: %d\n", config->decay_thresh_hold);
+    printf("Clause Size: %d\n", config->clause_size);
+    printf("Max LBD: %d\n", config->max_lbd);
+    printf("Alpha: %f\n", config->alpha);
+}
 /**
  * SOLVER DATA TRANSFER
 */
@@ -28,7 +45,6 @@ void initialize_chb(struct solver *S, int num_vars) {
   }
   
   S->config.alpha = 0.4;
-  S->config.numConflicts = 0;
 }
 void populate_solver_context(struct solver *dpu_solver)
 {                     
@@ -81,6 +97,8 @@ int main()
     first = 1;
   }
   dpu_ret = solve(&dpu_solver,dpu_iterations);
+  print_config(&dpu_solver.config);
+  printf("nConflicts %d\n",dpu_solver.nConflicts);
 }
 /**
  * DIVIDE AND CONQUER

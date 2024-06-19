@@ -1,6 +1,6 @@
 #include "microsat_dpu.h"
 void update_chb(struct solver *S, int var, float multiplier) {
-  float reward = multiplier / (S->config.numConflicts - S->config.lastConflict[var] + 1);
+  float reward = multiplier / (S->nConflicts - S->config.lastConflict[var] + 1);
   S->config.Q[var] = (1.0 - S->config.alpha) * S->config.Q[var] + S->config.alpha * reward;
 }
 
@@ -566,11 +566,10 @@ int propagate(struct solver *S)
           if (!lemma[1])
             forced = 1; // In case a unit clause is found, set forced flag
           assign(S, lemma, forced);
-          S->config.numConflicts++;
           for (int i = 0; lemma[i] != 0; i++) 
           {
             int var = abs(lemma[i]);
-            S->config.lastConflict[var] = S->config.numConflicts;
+            S->config.lastConflict[var] = S->nConflicts;
           }
           break;
         }

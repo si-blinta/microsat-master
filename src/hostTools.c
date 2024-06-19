@@ -231,6 +231,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
         DPU_ASSERT(dpu_copy_from(dpu,"config",0,&dpu_solver.config,sizeof(int)));
         log_message(LOG_LEVEL_INFO,"DPU SAT");
         log_config(dpu_solver.config);
+        dpu_log_read(dpu,stdout);
         finish = 1;
         break;
       }
@@ -239,6 +240,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
         log_message(LOG_LEVEL_INFO,"DPU UNSAT");
         finish = 1;
         log_config(dpu_solver.config);
+        dpu_log_read(dpu,stdout);
         break;
       }
     }

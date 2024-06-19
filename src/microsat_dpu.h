@@ -88,7 +88,6 @@ typedef struct
   int* plays;
   int* lastConflict;
   float alpha;
-  int numConflicts;
 
 }config_t;
 struct solver
