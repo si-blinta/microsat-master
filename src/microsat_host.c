@@ -759,7 +759,7 @@ void initCDCL(struct solver *S, int n, int m)
   S->head = n;
 } // Initialize the head of the float-linked list
 
-static void read_until_new_line(FILE *input)
+void read_until_new_line(FILE *input)
 {
   int ch;
   while ((ch = getc(input)) != '\n')

@@ -4,6 +4,7 @@
 #include <dpu.h>
 #include <assert.h>
 #include "microsat_host.h"
+#include <math.h>
 #define roundup(n, m) ((n / m) * m + m)
 #define rounddown(n, m) ((n / m) * m)
 #define SIZE_OF_CONFIG_T(nVars) \
@@ -60,4 +61,8 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set);
+void initialize_dpu_solver(struct dpu_set_t set, struct solver *dpu_solver, int *vars, int *offsets);
+void configure_dpu(struct dpu_set_t set, struct solver *dpu_solver);
+void broadcast_iterations_and_launch(struct dpu_set_t set, int *finish, int mode, int luby_base, int geo_base, int geo_factor);
+void check_dpu_results(struct dpu_set_t set, struct solver *dpu_solver, int *finish);
 #endif // HOST_TOOLS_H

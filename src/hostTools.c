@@ -3,15 +3,7 @@
 #include "log.h"
 #include <time.h>
 #include "utils.h"
-#define MAX_RANDOM_THRESHHOLD 100
 
-#define GEOMETRIC_FACTOR 1.2
-
-#define ADAPTIVE_FACTOR 1.5
-#define PROGRESS_THRESHOLD 0.95
-#define MIN_THRESHOLD 2000
-
-#define FIXED_THRESHOLD 1000
 void HOST_TOOLS_allocate_dpus(struct dpu_set_t *set, uint32_t *nb_dpus)
 {
   DPU_ASSERT(dpu_alloc(*nb_dpus, NULL, set));
@@ -69,181 +61,116 @@ static void populate_vars(int vars[12], struct solver S)
     vars[11] = S.decision_counter;
 }
 
-
-void HOST_TOOLS_launch(char* filename, struct dpu_set_t set)
+int geometric(int base, int factor, int step)
 {
-  struct solver dpu_solver;
-  int ret = parse(&dpu_solver,filename);
-  if(ret == UNSAT)
-  {
-    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
-    exit(0);
-  }
-  log_message(LOG_LEVEL_INFO,"parsing finished");
-  struct dpu_set_t dpu;
-  int dpu_ret= UNSAT;
-  int offsets[13];int vars[12];
-  populate_offsets(offsets,dpu_solver);
-  populate_vars(vars,dpu_solver);
-  log_message(LOG_LEVEL_INFO,"Broadcasting");
-
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,11*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
-  log_message(LOG_LEVEL_INFO,"Launching");
-  DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
-  log_message(LOG_LEVEL_DEBUG,"AFTER LAUNCHING");
-  DPU_FOREACH(set,dpu)
-  {
-    DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
-    if(dpu_ret== SAT)
-    {
-      log_message(LOG_LEVEL_INFO,"DPU SAT");
-      dpu_log_read(dpu,stdout);
-      break;
-    }
-    if(dpu_ret== STOPPED)
-    {
-      log_message(LOG_LEVEL_INFO,"STOPPED");
-    }
-  }
+    return base * pow(factor, step - 1);
 }
-void HOST_TOOLS_divide_and_conquer_old(char* filename, struct dpu_set_t set)
-{ 
-  dpu_cntx states[NB_DPU];
-  int id = 0;
-  struct dpu_set_t dpu;
-  DPU_FOREACH(set,dpu,id)
-  {
-    states[id].state = BUSY;
-    states[id].dpu   = dpu;
-  }
-
-  struct solver dpu_solver,model;
-  int ret = parse(&dpu_solver,filename);
-  initCDCL(&model,dpu_solver.nVars,dpu_solver.nClauses);
-  if(ret == UNSAT)
-  {
-    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
-    exit(0);
-  }
-  log_message(LOG_LEVEL_INFO,"parsing finished");
-  int dpu_ret = UNSAT;
-  int unsat_cpt = 0;
-  int sat = 0;
-  uint32_t offsets[13];uint32_t vars[12];
-  populate_offsets(offsets,dpu_solver);
-  populate_vars(vars,dpu_solver);
-  log_message(LOG_LEVEL_INFO,"Broadcasting");
-  HOST_TOOLS_send_id(set);
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,12*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,13*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int),DPU_XFER_DEFAULT));
-  clock_t start,end;
-  double duration;
-  start = clock();
-  while(unsat_cpt < NB_DPU && !sat)
-  {
-    id = 0;
-    unsat_cpt = 0;
-    sat = 0;
-    log_message(LOG_LEVEL_INFO,"Launching");
-    DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
-    
-    DPU_FOREACH(set,dpu,id)
-    { 
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
-      if(dpu_ret == SAT)
-      {
-        log_message(LOG_LEVEL_INFO,"DPU SAT");
-        dpu_log_read(dpu,stdout);
-        sat = 1;
-        break;
-      }
-      if(dpu_ret== STOPPED)
-      {
-        //log_message(LOG_LEVEL_INFO,"STOPPED");
-
-      }
-      if(dpu_ret == UNSAT)
-      {
-        states[id].state = IDLE;
-        unsat_cpt++;
-      }
-    }
-  int busy = 0;
-  for(int i = 0 ; i < NB_DPU;i++)
-  {
-    if(states[i].state == busy)
-      busy++;
-  }
-  printf("BUSY %d | IDLE %d\n",busy,NB_DPU-busy);
-  end = clock();
-  duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
-  printf("DPU %lf ms\n",duration);
-  if(!sat)
-    log_message(LOG_LEVEL_INFO,"DPU UNSAT");
-}
-} 
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
 {
-  struct dpu_set_t dpu;
-  struct solver dpu_solver;
-  int ret = parse(&dpu_solver,filename);
-  if(ret == UNSAT)
-  {
-    log_message(LOG_LEVEL_INFO,"parsing UNSAT");
-    exit(0);
-  }
-  log_message(LOG_LEVEL_INFO,"parsing finished");
-  int dpu_ret;
-  int finish = 0;
-  int offsets[13];int vars[12];
-  populate_offsets(offsets,dpu_solver);
-  populate_vars(vars,dpu_solver);
-  log_message(LOG_LEVEL_INFO,"Broadcasting");
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_vars",0,vars,12*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"dpu_DB_offsets",0,offsets,13*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,MEM_MAX*sizeof(int),DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(set,"config",0,&dpu_solver.config,sizeof(config_t)-sizeof(float*)-2*sizeof(int*),DPU_XFER_DEFAULT));
-  DPU_FOREACH(set,dpu)
-  { //todo get good combinations
-    dpu_solver.config.br_p  = BR_CHB;
-    dpu_solver.config.rest_p  = rand() % 4;
-    dpu_solver.config.reduce_p  = rand() % 3;
-    
-    DPU_ASSERT(dpu_copy_to(dpu,"config",0,&dpu_solver.config,sizeof(config_t)-sizeof(float*)-2*sizeof(int*)));
-  }
-  clock_t start,end;
-  double duration;
-  start = clock();
-  while(!finish)
-  {
-    int iterations = rand()%1000 + 500;   // luby
-    DPU_ASSERT(dpu_broadcast_to(set,"dpu_iterations",0,&iterations,sizeof(int),DPU_XFER_DEFAULT));
-    log_message(LOG_LEVEL_INFO,"Launching with %d iterations",iterations);
-    DPU_ASSERT(dpu_launch(set,DPU_SYNCHRONOUS));
-    DPU_FOREACH(set,dpu)
-    { 
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_ret",0,&dpu_ret,sizeof(int)));
-      if(dpu_ret == SAT)
-      {
-        DPU_ASSERT(dpu_copy_from(dpu,"config",0,&dpu_solver.config,sizeof(int)));
-        log_message(LOG_LEVEL_INFO,"DPU SAT");
-        dpu_log_read(dpu,stdout);
-        finish = 1;
-        break;
-      }
-      else if(dpu_ret == UNSAT)
-      {
-        log_message(LOG_LEVEL_INFO,"DPU UNSAT");
-        finish = 1;
-        dpu_log_read(dpu,stdout);
-        break;
-      }
+    struct solver dpu_solver;
+    int ret = parse(&dpu_solver, filename);
+    if (ret == UNSAT)
+    {
+        log_message(LOG_LEVEL_INFO, "parsing UNSAT");
+        exit(0);
     }
-  }
-  end = clock();
-  duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
-  log_message(LOG_LEVEL_INFO,"DPU %lf ms",duration);
+    log_message(LOG_LEVEL_INFO, "parsing finished");
+
+    int finish = 0;
+    int offsets[13];
+    int vars[12];
+
+    populate_offsets(offsets, dpu_solver);
+    populate_vars(vars, dpu_solver);
+
+    log_message(LOG_LEVEL_INFO, "Broadcasting");
+    initialize_dpu_solver(set, &dpu_solver, vars, offsets);
+    configure_dpu(set, &dpu_solver);
+
+    clock_t start, end;
+    double duration;
+    start = clock();
+
+    int mode = 0; // 0 for Luby sequence, 1 for geometric sequence
+    int luby_base = 2;
+    int geo_base = 500; // Example base for geometric sequence
+    int geo_factor = 2; // Example factor for geometric sequence
+
+    while (!finish)
+    {
+        broadcast_iterations_and_launch(set, &finish, mode, luby_base, geo_base, geo_factor);
+        check_dpu_results(set, &dpu_solver, &finish);
+    }
+
+    end = clock();
+    duration = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
+    log_message(LOG_LEVEL_INFO, "DPU %lf ms", duration);
+}
+
+
+void initialize_dpu_solver(struct dpu_set_t set, struct solver *dpu_solver, int *vars, int *offsets)
+{
+    DPU_ASSERT(dpu_broadcast_to(set, "dpu_vars", 0, vars, 12 * sizeof(int), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(set, "dpu_DB_offsets", 0, offsets, 13 * sizeof(int), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(set, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver->DB, MEM_MAX * sizeof(int), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(set, "config", 0, &dpu_solver->config, sizeof(config_t) - sizeof(float*) - 2 * sizeof(int*), DPU_XFER_DEFAULT));
+}
+
+void configure_dpu(struct dpu_set_t set, struct solver *dpu_solver)
+{
+    struct dpu_set_t dpu;
+    DPU_FOREACH(set, dpu)
+    {
+        dpu_solver->config.br_p = rand() % 3 ;
+        dpu_solver->config.rest_p = rand() % 4;
+        dpu_solver->config.reduce_p = rand() % 3;
+        DPU_ASSERT(dpu_copy_to(dpu, "config", 0, &dpu_solver->config, sizeof(config_t) - sizeof(float*) - 2 * sizeof(int*)));
+    }
+}
+
+void broadcast_iterations_and_launch(struct dpu_set_t set, int *finish, int mode, int luby_base, int geo_base, int geo_factor)
+{
+    int iterations;
+    static int luby_index = 1;
+    static int geo_step = 1;
+
+    if (mode == 0) 
+    {
+        iterations = luby(luby_base, luby_index);
+        luby_index++;
+    }
+    else if (mode == 1)
+    {
+        iterations = geometric(geo_base, geo_factor, geo_step);
+        geo_step++;
+    }
+
+    DPU_ASSERT(dpu_broadcast_to(set, "dpu_iterations", 0, &iterations, sizeof(int), DPU_XFER_DEFAULT));
+    log_message(LOG_LEVEL_INFO, "Launching with %d iterations", iterations);
+    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+}
+
+void check_dpu_results(struct dpu_set_t set, struct solver *dpu_solver, int *finish)
+{
+    struct dpu_set_t dpu;
+    int dpu_ret;
+    DPU_FOREACH(set, dpu)
+    {
+        DPU_ASSERT(dpu_copy_from(dpu, "dpu_ret", 0, &dpu_ret, sizeof(int)));
+        if (dpu_ret == SAT)
+        {
+            DPU_ASSERT(dpu_copy_from(dpu, "config", 0, &dpu_solver->config, sizeof(int)));
+            log_message(LOG_LEVEL_INFO, "DPU SAT");
+            dpu_log_read(dpu, stdout);
+            *finish = 1;
+            break;
+        }
+        else if (dpu_ret == UNSAT)
+        {
+            log_message(LOG_LEVEL_INFO, "DPU UNSAT");
+            *finish = 1;
+            dpu_log_read(dpu, stdout);
+            break;
+        }
+    }
 }

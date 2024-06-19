@@ -147,7 +147,7 @@ void set_solver_red(struct solver *S,enum reduce_policy red);
 
 
 
-static void read_until_new_line(FILE *input);
+void read_until_new_line(FILE *input);
 int parse(struct solver *S, char *filename);
 
 void show_solver_info_debug(struct solver S);

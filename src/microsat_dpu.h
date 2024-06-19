@@ -5,6 +5,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <defs.h>
+#include "utils.h"
+#include "mram.h"
+#include <alloc.h>
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
 #define REDUCE_LIMIT 2
@@ -500,6 +503,24 @@ void show_solver_stats(struct solver S);
  * @param config : the config.
  * @return None
  */
-
 void log_config(config_t config);
+
+/**
+ * @brief Initializes the Conflict History Based (CHB) heuristic for the solver.
+ * @param S Pointer to the solver structure.
+ * @param num_vars Integer number of variables in the solver.
+ * @return None
+ */
+void initialize_chb(struct solver *S, int num_vars);
+
+/**
+ * @brief Populates the solver context with the given data.
+ * @param dpu_solver Pointer to the solver structure.
+ * @param dpu_vars Pointer to an array of integer variables.
+ * @param dpu_DB_offsets Pointer to an array of integer database offsets.
+ * @param config Configuration structure.
+ * @return None
+ */
+void populate_solver_context(struct solver *dpu_solver, int *dpu_vars, int* dpu_DB_offsets, config_t config);
+
 #endif
