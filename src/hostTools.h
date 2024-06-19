@@ -60,5 +60,4 @@ void HOST_TOOLS_compile(uint8_t nb_tasklets);
 void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_launch(char* filename, struct dpu_set_t set);
 void HOST_TOOLS_divide_and_conquer(char* filename, struct dpu_set_t set);
-void log_config(config_t config);
 #endif // HOST_TOOLS_H

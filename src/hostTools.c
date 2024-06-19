@@ -208,7 +208,7 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   DPU_ASSERT(dpu_broadcast_to(set,"config",0,&dpu_solver.config,sizeof(config_t)-sizeof(float*)-2*sizeof(int*),DPU_XFER_DEFAULT));
   DPU_FOREACH(set,dpu)
   { //todo get good combinations
-    dpu_solver.config.br_p  = rand() % 2;
+    dpu_solver.config.br_p  = BR_CHB;
     dpu_solver.config.rest_p  = rand() % 4;
     dpu_solver.config.reduce_p  = rand() % 3;
     
@@ -230,7 +230,6 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
       {
         DPU_ASSERT(dpu_copy_from(dpu,"config",0,&dpu_solver.config,sizeof(int)));
         log_message(LOG_LEVEL_INFO,"DPU SAT");
-        log_config(dpu_solver.config);
         dpu_log_read(dpu,stdout);
         finish = 1;
         break;
@@ -239,7 +238,6 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
       {
         log_message(LOG_LEVEL_INFO,"DPU UNSAT");
         finish = 1;
-        log_config(dpu_solver.config);
         dpu_log_read(dpu,stdout);
         break;
       }
@@ -248,99 +246,4 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
   end = clock();
   duration = (double)(end-start)/CLOCKS_PER_SEC *1000.0;
   log_message(LOG_LEVEL_INFO,"DPU %lf ms",duration);
-}
-/**
- * #if SHARING
-       //Add learned clauses.
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_mem_used",0,&dpu_solver.mem_used,sizeof(int)));
-      DPU_ASSERT(dpu_copy_from(dpu,"dpu_last_mem_used",0,&dpu_solver.mem_fixed,sizeof(int)));
-      if(dpu_solver.mem_used - dpu_solver.mem_fixed > 0)
-      {
-        //DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,rounddown(dpu_solver.mem_fixed,8)*sizeof(int),dpu_solver.DB+rounddown(dpu_solver.mem_fixed,8),roundup((dpu_solver.mem_used-dpu_solver.mem_fixed),8)*sizeof(int)));
-        //TODO SEND ONLY CLAUSES : I HAVE A WEIRD BUG (SOME CLAUSE MEMBERS ARE SWAPPED)
-        DPU_ASSERT(dpu_copy_from(dpu,DPU_MRAM_HEAP_POINTER_NAME,0,dpu_solver.DB,roundup(dpu_solver.mem_used,8)*sizeof(int)));
-      }
-      else
-        continue;
-      int i = dpu_solver.mem_fixed;
-      while (i < dpu_solver.mem_used) 
-      {
-        i += 2; // Move to the next element after the watch pointers
-        int clause_size = 0;
-        while (i < dpu_solver.mem_used && dpu_solver.DB[i] != 0)
-        {
-          clause_size++;
-          i++;
-        }
-        if (learnt_clause_count < MAX_LEARNT_CLAUSES && clause_size < MAX_CLAUSE_SIZE) 
-        {
-        // Copy the learned clause to the array
-        memcpy(learnt_clauses[learnt_clause_count], dpu_solver.DB + i - clause_size, clause_size * sizeof(int));
-        learnt_clause_sizes[learnt_clause_count] = clause_size; // Store the size of the learned clause
-        printf("learned a clause : size %d \n",clause_size);
-        for(int i = 0 ; i < learnt_clause_sizes[learnt_clause_count] ; i++)
-          printf("%d ",learnt_clauses[learnt_clause_count][i]);
-        printf("\n");
-        learnt_clause_count++; // Increment the total count of learned clauses
-        learnt_clauses_per_launch++;
-        }
-        i++;
-        }
-    }
-     if(learnt_clauses_per_launch != 0)
-    { 
-    //SEND LEARNED CLAUSES :
-    DPU_ASSERT(dpu_broadcast_to(set, "dpu_lc", 0, learnt_clauses + (learnt_clause_count - learnt_clauses_per_launch), learnt_clauses_per_launch * sizeof(int), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(set, "dpu_lc_sizes", 0, learnt_clause_sizes + (learnt_clause_count - learnt_clauses_per_launch), learnt_clauses_per_launch * sizeof(int), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(set, "dpu_lc_count", 0, &learnt_clauses_per_launch, sizeof(int), DPU_XFER_DEFAULT));
-#endif //SHARING
-*/
-
-void log_config(config_t config)
-{
-    printf("Branching heurstic used ");
-    switch (config.br_p)
-    {
-    case BR_VMTF:
-        printf("VMTF : Variable move to the front\n");
-        break;
-    case BR_VSIDS:
-        printf("VSIDS : Variable state decaying sum : decay factor ->%f |decay thresh hold -> %d conflicts\n",config.decay_factor,config.decay_thresh_hold);
-        break;
-    default:
-        break;
-    }
-    printf("Restart policy used ");
-    switch (config.rest_p)
-    {
-    case REST_DEFAULT:
-        printf("DEFAULT : Exponential moving averages ( slow - fast )\n");
-        break;
-    case REST_GEO:
-        printf("GEOMETRIC : reason ->%f | thresh hold -> %d conflicts\n",config.geo_factor,config.geo_max);
-        break;
-    case REST_LUBY:
-        printf("LUBY: Luby's Series : base ->%d\n",config.luby_base);
-        break;
-    default:
-        break;
-    }
-    printf("Clause suppression mecanism used ");
-    switch (config.rest_p)
-    {
-    case RED_DEFAULT:
-        printf("DEFAULT : Clauses that have literals unassigned < %d\n",REDUCE_LIMIT);
-        break;
-    case RED_SIZE:
-        printf("SIZE : Clauses that have size > %d \n",config.clause_size);
-        break;
-    case RED_LBD:
-        printf("LBD: Clauses with LBD > %d\n",config.max_lbd);
-        break;
-    default:
-        break;
-    }
-    printf("Learnt clauses with LBD <= 2 and clauses with size = 2 are always conserved\n");
-
-
 }

@@ -103,6 +103,29 @@ struct solver
 
 
 };
+typedef int (*branching_function)(struct solver *S,int decision);
+extern branching_function branching_funcs[3];
+
+typedef void (*restart_function)(struct solver *);
+extern restart_function restart_funcs[3];
+
+typedef int (*reduce_functions)(struct solver *S, int count, int k, float size, int clause_size, float lb);
+extern reduce_functions reduce_funcs[3];
+void setup_reduce_functions();
+void setup_functions();
+void restart_default(struct solver *S);
+void restart_luby(struct solver *S);
+void restart_geo(struct solver *S);
+void restart_arith(struct solver *S);
+int branching_vmtf(struct solver* S,int decision);
+int branching_vsids(struct solver *S,int decision);
+int branching_chb(struct solver *S,int decision);
+int reduce_default(struct solver *S, int count, int k, float size, int clause_size, float lbd);
+int reduce_size(struct solver *S, int count, int k, float size, int clause_size, float lbd);
+int reduce_lbd(struct solver *S, int count, int k, float size, int clause_size, float lbd);
+int luby(int y, int x);
+
+
 void unassign(struct solver *S, int lit,int flag);
 void restart(struct solver *S);
 void assign(struct solver *S, int *reason, int forced);

@@ -1,5 +1,147 @@
 #include "microsat_host.h"
 #include "log.h"
+reduce_functions reduce_funcs[3];
+restart_function restart_funcs[3];
+branching_function branching_funcs[3];
+void setup_reduce_functions()
+{
+    reduce_funcs[RED_DEFAULT] = reduce_default;
+    reduce_funcs[RED_SIZE] = reduce_size;
+    reduce_funcs[RED_LBD] = reduce_lbd;
+}
+void setup_branching_functions()
+{
+    branching_funcs[BR_VMTF] = branching_vmtf;
+    branching_funcs[BR_VSIDS] = branching_vsids;
+    branching_funcs[BR_CHB] = branching_chb;
+}
+void setup_restart_functions()
+{
+    restart_funcs[REST_DEFAULT] = restart_default;
+    restart_funcs[REST_ARITH] = restart_arith;
+    restart_funcs[REST_GEO] = restart_geo;
+    restart_funcs[REST_LUBY] = restart_luby;
+}
+void setup_functions()
+{
+    setup_restart_functions();
+    setup_reduce_functions();
+    setup_branching_functions();
+}
+int reduce_default(struct solver *S, int count, int k, float size, int clause_size, float lbd)
+{
+    return (count < k);
+}
+
+int reduce_size(struct solver *S, int count, int k, float size, int clause_size, float lbd)
+{
+    return (size <= clause_size);
+}
+
+int reduce_lbd(struct solver *S, int count, int k, float size, int clause_size, float lbd)
+{
+    return (lbd <= S->config.max_lbd);
+}
+void restart_default(struct solver *S)
+{
+    if (S->fast > (S->slow / 100) * 125)
+    {
+        S->fast = (S->slow / 100) * 125;
+        restart(S);
+        if (S->nLemmas > S->maxLemmas)
+        {
+            reduceDB(S, REDUCE_LIMIT);
+        }
+        reset_decision_levels(S);
+    }
+}
+
+void restart_luby(struct solver *S)
+{
+    if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
+    {
+        restart(S);
+        S->config.luby_index++;
+        S->config.conflicts = 0;
+        if (S->nLemmas > S->maxLemmas)
+        {
+            reduceDB(S, REDUCE_LIMIT);
+        }
+        reset_decision_levels(S);
+    }
+}
+
+void restart_geo(struct solver *S)
+{
+    if (S->config.conflicts >= S->config.geo_max)
+    {
+        restart(S);
+        S->config.geo_max *= S->config.geo_factor;
+        S->config.conflicts = 0;
+        if (S->nLemmas > S->maxLemmas)
+        {
+            reduceDB(S, REDUCE_LIMIT);
+        }
+        reset_decision_levels(S);
+    }
+}
+
+void restart_arith(struct solver *S)
+{
+    if (S->config.conflicts >= S->config.arith_max)
+    {
+        restart(S);
+        S->config.arith_max += S->config.arith_reason;
+        S->config.conflicts = 0;
+        if (S->nLemmas > S->maxLemmas)
+        {
+            reduceDB(S, REDUCE_LIMIT);
+        }
+        reset_decision_levels(S);
+    }
+}
+
+int branching_vmtf(struct solver* S,int decision)
+{
+    while (S->falses[decision] || S->falses[-decision])
+    {
+        decision = S->prev[decision];
+    }
+    return decision;
+}
+
+int branching_vsids(struct solver *S,int decision)
+{
+    int highest_score_var = 0;  // Variable with the highest score
+      float highest_score = -1.0f;  // Initialize to a low value
+
+      // Loop through all variables to find the unassigned one with the highest score
+      for (int var = 1; var <= S->nVars; var++) {
+          if (S->falses[var] == 0 && S->falses[-var] == 0) {  // Check if the variable is unassigned
+              if (S->scores[var] > highest_score) {  // Check if current variable has a higher score than the current highest
+                  highest_score = S->scores[var];
+                  highest_score_var = var;
+              }
+          }
+      }
+
+      if (highest_score_var == 0) {
+          // No unassigned variables found, return 0 or handle it as per your solver's design
+          return 0;
+      }
+      return highest_score_var;
+}
+int branching_chb(struct solver *S,int decision) {
+  int best_var = 0;
+  float best_score = -1.0;
+  for (int i = S->nVars+1; i > 0; i--) {
+    if (!S->falses[i] && !S->falses[-i] && S->config.Q[i] > best_score) {
+      best_score = S->config.Q[i];
+      best_var = i;
+    }
+  }
+  return best_var;
+}
 
 void initialize_chb(struct solver *S, int num_vars) {
   log_message(LOG_LEVEL_DEBUG, "Initializing CHB with %d variables", num_vars);
@@ -84,105 +226,11 @@ int luby(int y, int x)
 }
 void check_and_restart(struct solver *S)
 {
-  int reduce_flag = 0;
-  if (S->nLemmas > S->maxLemmas)
-    reduce_flag = 1;
-  switch (S->config.rest_p)
-  {
-  case REST_DEFAULT:
-    if (S->fast > (S->slow / 100) * 125)
-    {
-#if RESTART_DEBUG    
-      log_message(LOG_LEVEL_DEBUG,"default restart after %d conflicts", S->config.conflicts);
-#endif
-      // Restart logic for default policy
-      S->fast = (S->slow / 100) * 125; // 125
-      restart(S);                      // Restart and update the averages
-      if (reduce_flag)
-        reduceDB(S, REDUCE_LIMIT);
-      reset_decision_levels(S);
-    }
-    break;
-  case REST_LUBY:
-    if (S->config.conflicts >= luby(S->config.luby_base, S->config.luby_index))
-    {
-#if RESTART_DEBUG    
-      log_message(LOG_LEVEL_DEBUG,"luby restart after %d conflicts", S->config.conflicts);
-#endif
-      restart(S); // Restart and update the averages
-      S->config.luby_index++;
-      S->config.conflicts = 0;
-      if (reduce_flag)
-        reduceDB(S, REDUCE_LIMIT);
-      reset_decision_levels(S);
-    }
-    break;
-  case REST_GEO:
-    if (S->config.conflicts >= S->config.geo_max)
-    {
-#if RESTART_DEBUG   
-      log_message(LOG_LEVEL_DEBUG,"geo restart after %d conflicts", S->config.conflicts);
-#endif 
-      restart(S); // Restart and update the averages
-      S->config.geo_max *= S->config.geo_factor;
-      S->config.conflicts = 0;
-      if (reduce_flag)
-        reduceDB(S, REDUCE_LIMIT);
-      reset_decision_levels(S);
-    }
-    break;
-  case REST_ARITH:
-    if (S->config.conflicts >= S->config.arith_max)
-    {
-#if RESTART_DEBUG   
-      log_message(LOG_LEVEL_DEBUG,"arithmetic restart after %d conflicts", S->config.conflicts);
-#endif
-      restart(S); // Restart and update the averages
-      S->config.arith_max += S->config.arith_reason;
-      S->config.conflicts = 0;
-      if (reduce_flag)
-        reduceDB(S, REDUCE_LIMIT);
-      reset_decision_levels(S);
-    }
-    break;
-  }
+  restart_funcs[S->config.rest_p](S);
 }
 int decide(struct solver* S,int decision)
 {
-  if(S->config.br_p == BR_VMTF)
-    {
-      while (S->falses[decision] || S->falses[-decision])
-      { // As long as the temporay decision is assigned
-        decision = S->prev[decision];
-      }
-      return decision;
-    }
-  else if(S->config.br_p == BR_VSIDS)
-    {
-      int highest_score_var = 0;  // Variable with the highest score
-      float highest_score = -1.0f;  // Initialize to a low value
-
-      // Loop through all variables to find the unassigned one with the highest score
-      for (int var = 1; var <= S->nVars; var++) {
-          if (S->falses[var] == 0 && S->falses[-var] == 0) {  // Check if the variable is unassigned
-              if (S->scores[var] > highest_score) {  // Check if current variable has a higher score than the current highest
-                  highest_score = S->scores[var];
-                  highest_score_var = var;
-              }
-          }
-      }
-
-      if (highest_score_var == 0) {
-          // No unassigned variables found, return 0 or handle it as per your solver's design
-          return 0;
-      }
-      return highest_score_var;
-    }
-  else if (S->config.br_p == BR_CHB)
-  {
-    return pick_branching_variable_chb(S);
- 
-  }
+  return branching_funcs[S->config.br_p](S,decision);
 }
 int solve(struct solver *S, int stop_it) {
   int decision = decide(S,S->head);
@@ -381,41 +429,12 @@ void reduceDB(struct solver *S, int k)
       size++;
       score+= S->scores[abs(lit)];
       
-    } // That are satisfied by the current model
-    if ( S->config.reduce_p == RED_DEFAULT && count < k)
+    }
+    int add_clause = reduce_funcs[S->config.reduce_p](S, count, k, size, S->config.clause_size, lbd);
+    if (add_clause || lbd_2)
     {
-#if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on number of assigned literals");
-      print_clause(S,clause);
-#endif
       addClause(S, S->DB + head, i - head, 0);
     }
-    else if(S->config.reduce_p == RED_SIZE && size <= S->config.clause_size)
-    {
-#if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED a clause based on size");
-      print_clause(S,clause);
-#endif
-      addClause(S, S->DB + head, i - head, 0);
-    }
-    // Clauses of lbd  = 2 are importants, no matter the policy of reducing , we will conserve them.
-    else if(S->config.reduce_p == RED_LBD && lbd <= S->config.max_lbd)
-    {
-#if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED clause based on LBD (%d)",lbd);
-      print_clause(S,clause);
-#endif
-      addClause(S, S->DB + head, i - head, 0);
-    }
-    else if(lbd_2)
-    {
-#if REDUCE_DEBUG 
-      log_message(LOG_LEVEL_DEBUG,"ADDED LBD-2 clause");
-      print_clause(S,clause);
-#endif
-      addClause(S, S->DB + head, i - head, 0);
-    }
-    
 
   }
 } // If the latter is smaller than k, add it back
@@ -682,6 +701,7 @@ int propagate(struct solver *S)
 void initCDCL(struct solver *S, int n, int m)
 {
   initialize_chb(S,n);
+  setup_functions();
   if (n < 1)
     n = 1;                     // The code assumes that there is at least one variable
   S->nVars = n;                // Set the number of variables

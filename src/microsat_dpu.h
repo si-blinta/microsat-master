@@ -110,6 +110,27 @@ struct solver
   int __mram_ptr* decision_level;
    
 };
+typedef int (*branching_function)(struct solver *S,int decision);
+extern branching_function branching_funcs[3];
+
+typedef void (*restart_function)(struct solver *);
+extern restart_function restart_funcs[4];
+
+typedef int (*reduce_functions)(struct solver *S, int count, int k, float size, int clause_size, float lb);
+extern reduce_functions reduce_funcs[3];
+void setup_reduce_functions();
+void setup_functions();
+void restart_default(struct solver *S);
+void restart_luby(struct solver *S);
+void restart_geo(struct solver *S);
+void restart_arith(struct solver *S);
+int branching_vmtf(struct solver* S,int decision);
+int branching_vsids(struct solver *S,int decision);
+int branching_chb(struct solver *S,int decision);
+int reduce_default(struct solver *S, int count, int k, float size, int clause_size, float lbd);
+int reduce_size(struct solver *S, int count, int k, float size, int clause_size, float lbd);
+int reduce_lbd(struct solver *S, int count, int k, float size, int clause_size, float lbd);
+int luby(int y, int x);
 
 void reset_solver(struct solver *S);
 void unassign(struct solver *S, int lit,int flag);
@@ -139,5 +160,4 @@ int solve_luby(struct solver* S,int stop_it,int luby_param);
 void reset_solver(struct solver *S);
 int* get_reasons(struct solver S);
 void reset_decision_levels(struct solver *S);
-void log_config(struct solver S);
 #endif 

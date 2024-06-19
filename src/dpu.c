@@ -3,22 +3,59 @@
 #include "utils.h"
 #include "mram.h"
 #include <alloc.h>
-void print_config(const config_t* config) {
-    printf("Branching Policy: %d\n", config->br_p);
-    printf("Restart Policy: %d\n", config->rest_p);
-    printf("Reduce Policy: %d\n", config->reduce_p);
-    printf("Conflicts: %d\n", config->conflicts);
-    printf("Geo Factor: %f\n", config->geo_factor);
-    printf("Geo Max: %d\n", config->geo_max);
-    printf("Luby Base: %d\n", config->luby_base);
-    printf("Luby Index: %d\n", config->luby_index);
-    printf("Arith Reason: %d\n", config->arith_reason);
-    printf("Arith Max: %d\n", config->arith_max);
-    printf("Decay Factor: %f\n", config->decay_factor);
-    printf("Decay Threshold: %d\n", config->decay_thresh_hold);
-    printf("Clause Size: %d\n", config->clause_size);
-    printf("Max LBD: %d\n", config->max_lbd);
-    printf("Alpha: %f\n", config->alpha);
+void log_config(config_t config)
+{
+    printf("c Branching heurstic used ");
+    switch (config.br_p)
+    {
+    case BR_VMTF:
+        printf("c VMTF : Variable move to the front\n");
+        break;
+    case BR_VSIDS:
+        printf("c VSIDS : Variable state decaying sum : decay factor ->%f |decay thresh hold -> %d conflicts\n",config.decay_factor,config.decay_thresh_hold);
+        break;
+    case BR_CHB:
+        printf("c CHB : Conflict history based branching \n");
+        break;
+    default:
+        break;
+    }
+    printf("c Restart policy used ");
+    switch (config.rest_p)
+    {
+    case REST_DEFAULT:
+        printf("c DEFAULT : Exponential moving averages ( slow - fast )\n");
+        break;
+    case REST_GEO:
+        printf("c GEOMETRIC : reason ->%f | thresh hold -> %d conflicts\n",config.geo_factor,config.geo_max);
+        break;
+    case REST_LUBY:
+        printf("c LUBY: Luby's Series : base ->%d\n",config.luby_base);
+        break;
+    case REST_ARITH:
+        printf("c ARITHMETIC: Arithmetic Series : reason ->%d\n",config.arith_reason);
+        break;
+    default:
+        break;
+    }
+    printf("c Clause suppression mecanism used ");
+    switch (config.rest_p)
+    {
+    case RED_DEFAULT:
+        printf("c DEFAULT : Clauses that have literals unassigned < %d\n",REDUCE_LIMIT);
+        break;
+    case RED_SIZE:
+        printf("c SIZE : Clauses that have size > %d \n",config.clause_size);
+        break;
+    case RED_LBD:
+        printf("c LBD: Clauses with LBD > %d\n",config.max_lbd);
+        break;
+    default:
+        break;
+    }
+    printf("c Learnt clauses with LBD <= 2 and clauses with size = 2 are always conserved\n");
+
+
 }
 /**
  * SOLVER DATA TRANSFER
@@ -26,9 +63,6 @@ void print_config(const config_t* config) {
 __host int dpu_DB_offsets[13];
 __host int dpu_vars[12];
 __host config_t config ;
-/*__host int learnt_clauses[MAX_LEARNT_CLAUSES+1][MAX_CLAUSE_SIZE];
-__host int dpu_mem_used;
-__host int dpu_old_mem_used;*/
 
 /**
  * RETURN VALUE
@@ -76,6 +110,7 @@ void populate_solver_context(struct solver *dpu_solver)
   dpu_solver->decision_level= dpu_solver->DB + dpu_DB_offsets[12];
   dpu_solver->config = config;  
   initialize_chb(dpu_solver,dpu_solver->nVars);
+  setup_functions();
 
 }
 /**
@@ -97,165 +132,5 @@ int main()
     first = 1;
   }
   dpu_ret = solve(&dpu_solver,dpu_iterations);
-  print_config(&dpu_solver.config);
-  printf("nConflicts %d\n",dpu_solver.nConflicts);
+  log_config(dpu_solver.config);
 }
-/**
- * DIVIDE AND CONQUER
-
-int first;
-int relaunch;
-void divide_and_conquer_kernel()
-{
-  struct solver dpu_solver;
-  
-  //printf("relaunch flag %d\n",relaunch);
-  if(relaunch == NO_RELAUNCH)
-  {
-    return 0;
-  }
-  if(first == 0)
-  {
-    populate_solver_context(&dpu_solver);
-      for (int j = 0; j < 10; j++) 
-  {
-    assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-  }
-  }
-  dpu_ret = solve(&dpu_solver,10);
-  if(dpu_ret == SAT )
-  {
-    show_result(dpu_solver);
-  }
-  if(dpu_ret == UNSAT )
-  {
-    relaunch = NO_RELAUNCH;
-    //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-  }
-  first++;
-}*/
-/*__host int dpu_last_mem_used;
-__host int dpu_mem_used;
-__host int dpu_lc[MAX_LEARNT_CLAUSES][MAX_CLAUSE_SIZE];
-__host int dpu_lc_sizes[MAX_LEARNT_CLAUSES];
-__host int dpu_lc_count;
-__mram_noinit int tmp[MAX_CLAUSE_SIZE];*/
-/**
- * #if SHARING
-  else
-  {
-    // Update database with new learned clauses.
-    for(int i = 0 ; i < dpu_lc_count;i++)
-    {
-      mram_write(dpu_lc[i],tmp,roundup(dpu_lc_sizes[i],8)*sizeof(int));
-      addClause(&dpu_solver,tmp,dpu_lc_sizes[i],0);
-    } 
-  }
-#endif
-*/
-  
-  
-
-/** PURE PORTFOLIO
- * seed = dpu_args.seed;
-  if(first == 0)
-  {
-    populate_solver_context(&dpu_solver);
-    first = 1;
-  }
-  dpu_ret = solve_portfolio(&dpu_solver,dpu_args.restart_policy,dpu_iterations,dpu_args.min_thresh_hold);
-  if(dpu_ret == SAT)
-  {
-    printf("[DPU] SOLVED using ");
-    switch (dpu_args.restart_policy)
-    {
-    case FIXED:
-       printf("FIXED RESTART\n");
-      break;
-    case DEFAULT:
-       printf("DEFAULT RESTART\n");
-      break; 
-    case RANDOM:
-       printf("RANDOM RESTART\n");
-      break; 
-    default:
-      break;
-    }
-    show_result(dpu_solver);
-    return SAT;
-  }
-  if(dpu_ret == UNSAT)
-  { 
-    printf("[DPU] SOLVED using ");
-    switch (dpu_args.restart_policy)
-    {
-    case FIXED:
-       printf("FIXED RESTART\n");
-      break;
-    case DEFAULT:
-       printf("DEFAULT RESTART\n");
-      break;
-    case RANDOM:
-       printf("RANDOM RESTART\n");
-      break;  
-    default:
-      break;
-    }
-    return UNSAT;
-  }
-*/
- //printf("relaunch flag %d\n",relaunch);
-  //populate_solver_context(&dpu_solver);
-  //if(first == 0)
-  //{
-   
-    //for (int j = 0; j < 10; j++) 
-    //{
-      //assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-      //printf("%d ",(dpu_id >> j) & 1 ? j + 1 : -(j + 1));
-    //}
-    //first = 1;
-  //}
-  //else
-  //{
-    //load another solver :
-    // assign decisions
-    
-    
-    //reset
-    //assign new starting point
-    //assign new 
-    /*reset_solver(&dpu_solver);
-    for (int j = 0; j < dpu_assign_size; j++) 
-    {
-      assign_decision(&dpu_solver,dpu_assigns[j]);
-      printf("%d ",dpu_assigns[j]);
-    }
-    printf("\n");
-    printf("%d\n",dpu_assign_size);*/
-    //if(dpu_to_assign_size > 10)
-      //dpu_to_assign_size = 10;
-    //for(int j = 0 ; j < dpu_to_assign_size; j++)
-    //{
-      //assign_decision(&dpu_solver,(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
-      //printf("%d ",(dpu_id >> j) & 1 ? dpu_to_assign[j] + 1 : -(dpu_to_assign[j] + 1));
-    //}
-    //printf("\n");
-    //show_solver_info_debug(dpu_solver);*/
-  //}
-  //dpu_ret = solve(&dpu_solver,10);
-  //populate_offsets(dpu_DB_offsets,dpu_solver);
-  //populate_vars(dpu_vars,dpu_solver);
-  //if(dpu_ret == SAT )
-  //{
-    //show_result(dpu_solver);
-  //}
-  /*if(dpu_ret == UNSAT)
-    relaunch = NO_RELAUNCH;
-   * Here else 
-   * get assigned lits;
-   * store it in assignement_t 
-   * get unassigned lits
-   * store it in another assignement_t 
-  */
