@@ -154,13 +154,12 @@ void initialize_chb(struct solver *S, int num_vars) {
   }
   
   S->config.alpha = 0.4;
-  S->config.numConflicts = 0;
 
   log_message(LOG_LEVEL_DEBUG, "CHB initialization completed");
 }
 
 void update_chb(struct solver *S, int var, float multiplier) {
-  float reward = multiplier / (S->config.numConflicts - S->config.lastConflict[var] + 1);
+  float reward = multiplier / (S->nConflicts- S->config.lastConflict[var] + 1);
   S->config.Q[var] = (1.0 - S->config.alpha) * S->config.Q[var] + S->config.alpha * reward;
 
 }
@@ -187,13 +186,12 @@ void handle_conflict(struct solver *S, int *conflict_clause) {
   for (int i = 0; conflict_clause[i] != 0; i++) {
     int var = abs(conflict_clause[i]);
     update_chb(S, var, 1.0);
-    S->config.lastConflict[var] = S->config.numConflicts;
+    S->config.lastConflict[var] = S->nConflicts;
   }
-  S->config.numConflicts++;
   if (S->config.alpha > 0.06) {
     S->config.alpha -= 0.000001;
   }
-  log_message(LOG_LEVEL_DEBUG, "Conflict handled. numConflicts: %d, alpha: %.6f", S->config.numConflicts, S->config.alpha);
+  log_message(LOG_LEVEL_DEBUG, "Conflict handled. numConflicts: %d, alpha: %.6f", S->nConflicts, S->config.alpha);
 }
 
 
@@ -682,11 +680,10 @@ int propagate(struct solver *S)
           if (!lemma[1])
             forced = 1; // In case a unit clause is found, set forced flag
           assign(S, lemma, forced);
-          S->config.numConflicts++;
           for (int i = 0; lemma[i] != 0; i++) 
           {
             int var = abs(lemma[i]);
-            S->config.lastConflict[var] = S->config.numConflicts;
+            S->config.lastConflict[var] = S->nConflicts;
           }
           break;
         }
