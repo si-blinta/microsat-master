@@ -821,3 +821,40 @@ void populate_solver_context(struct solver *dpu_solver,int * dpu_vars, int* dpu_
   initialize_chb(dpu_solver,dpu_solver->nVars);
   setup_functions();
 }
+extern int dpu_id;
+// LCG-based pseudo-random number generator
+uint32_t rand() {
+    dpu_id = (LCG_A * dpu_id + LCG_C) % LCG_M;
+    return dpu_id;
+}
+void move(struct solver *S, int lit)
+{ // Move the variable to the front of the decision list
+  if (S->falses[lit] != IMPLIED)
+  {
+    int var = abs(lit);
+    if (var != S->head)
+    {                                       // In case var is not already the head of the list
+      S->prev[S->next[var]] = S->prev[var]; // Update the prev link, and
+      S->next[S->prev[var]] = S->next[var]; // Update the next link, and
+      S->next[S->head] = var;               // Add a next link to the head, and
+      S->prev[var] = S->head;
+      S->head = var;
+    }
+  }
+} // Make var the new head
+// Function to randomize the decision linked list without dynamic memory allocation
+void randomize_decision_list(struct solver *S) {
+    for (int i  = 1; i <= S->nVars*2; i++) {
+        move(S,rand() % S->nVars+1);
+    }
+}
+// Function to print the decision linked list
+void print_decision_list(struct solver *S) {
+    int current = S->head;
+    printf("Decision Linked List: ");
+    while (current != 0) {
+        printf("%d ", current);
+        current = S->prev[current];
+    }
+    printf("\n");
+}

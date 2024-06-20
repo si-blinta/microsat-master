@@ -119,6 +119,7 @@ void initialize_dpu_solver(struct dpu_set_t set, struct solver *dpu_solver, int 
 void configure_dpu(struct dpu_set_t set, struct solver *dpu_solver)
 {
     struct dpu_set_t dpu;
+    HOST_TOOLS_send_id(set);
     DPU_FOREACH(set, dpu)
     {
         dpu_solver->config.br_p = rand() % 3 ;
@@ -156,21 +157,22 @@ void check_dpu_results(struct dpu_set_t set, struct solver *dpu_solver, int *fin
     int dpu_ret;
     DPU_FOREACH(set, dpu)
     {
+        dpu_log_read(dpu, stdout);
         DPU_ASSERT(dpu_copy_from(dpu, "dpu_ret", 0, &dpu_ret, sizeof(int)));
         if (dpu_ret == SAT)
         {
             DPU_ASSERT(dpu_copy_from(dpu, "config", 0, &dpu_solver->config, sizeof(int)));
             log_message(LOG_LEVEL_INFO, "DPU SAT");
-            dpu_log_read(dpu, stdout);
+            //dpu_log_read(dpu, stdout);
             *finish = 1;
-            break;
+            //break;
         }
         else if (dpu_ret == UNSAT)
         {
             log_message(LOG_LEVEL_INFO, "DPU UNSAT");
             *finish = 1;
-            dpu_log_read(dpu, stdout);
-            break;
+            //dpu_log_read(dpu, stdout);
+            //break;
         }
     }
 }

@@ -8,6 +8,10 @@
 #include "utils.h"
 #include "mram.h"
 #include <alloc.h>
+// Linear Congruential Generator (LCG) constants
+#define LCG_A 1664525
+#define LCG_C 1013904223
+#define LCG_M ((uint64_t)1 << 32)
 #define MAX_CLAUSE_SIZE 100
 #define MAX_LEARNT_CLAUSES 100
 #define REDUCE_LIMIT 2
@@ -523,4 +527,9 @@ void initialize_chb(struct solver *S, int num_vars);
  */
 void populate_solver_context(struct solver *dpu_solver, int *dpu_vars, int* dpu_DB_offsets, config_t config);
 
+/**
+ * @brief Randomizes decision list of a solver based on a seed.
+ */
+void randomize_decision_list(struct solver *S);
+void print_decision_list(struct solver *S);
 #endif
