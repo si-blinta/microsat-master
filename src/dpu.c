@@ -28,7 +28,6 @@ int main()
   {
     populate_solver_context(&dpu_solver,dpu_vars,dpu_DB_offsets,config);
     randomize_decision_list(&dpu_solver);
-    print_decision_list(&dpu_solver);
     first = 1;
   }
   dpu_ret = solve(&dpu_solver,dpu_iterations);
