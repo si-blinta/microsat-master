@@ -91,9 +91,9 @@ void HOST_TOOLS_pure_portfolio(char* filename, struct dpu_set_t set)
     double duration;
     start = clock();
 
-    int mode = 0; // 0 for Luby sequence, 1 for geometric sequence
+    int mode = 1; // 0 for Luby sequence, 1 for geometric sequence
     int luby_base = 2;
-    int geo_base = 500; // Example base for geometric sequence
+    int geo_base = 10; // Example base for geometric sequence
     int geo_factor = 2; // Example factor for geometric sequence
 
     while (!finish)
@@ -112,7 +112,7 @@ void initialize_dpu_solver(struct dpu_set_t set, struct solver *dpu_solver, int 
 {
     DPU_ASSERT(dpu_broadcast_to(set, "dpu_vars", 0, vars, 12 * sizeof(int), DPU_XFER_DEFAULT));
     DPU_ASSERT(dpu_broadcast_to(set, "dpu_DB_offsets", 0, offsets, 13 * sizeof(int), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(set, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver->DB, MEM_MAX * sizeof(int), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(set, DPU_MRAM_HEAP_POINTER_NAME, 0, dpu_solver->DB, roundup((dpu_solver->mem_used * sizeof(int)),8), DPU_XFER_DEFAULT));
     DPU_ASSERT(dpu_broadcast_to(set, "config", 0, &dpu_solver->config, sizeof(config_t) - sizeof(float*) - 2 * sizeof(int*), DPU_XFER_DEFAULT));
 }
 
@@ -122,9 +122,9 @@ void configure_dpu(struct dpu_set_t set, struct solver *dpu_solver)
     HOST_TOOLS_send_id(set);
     DPU_FOREACH(set, dpu)
     {
-        dpu_solver->config.br_p = rand() % 3 ;
-        dpu_solver->config.rest_p = rand() % 4;
-        dpu_solver->config.reduce_p = rand() % 3;
+        dpu_solver->config.br_p = BR_VMTF;//rand() % 3 ;
+        dpu_solver->config.rest_p = REST_DEFAULT;//rand() % 4;
+        dpu_solver->config.reduce_p = RED_DEFAULT;//rand() % 3;
         DPU_ASSERT(dpu_copy_to(dpu, "config", 0, &dpu_solver->config, sizeof(config_t) - sizeof(float*) - 2 * sizeof(int*)));
     }
 }

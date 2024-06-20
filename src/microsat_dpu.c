@@ -278,7 +278,6 @@ int __mram_ptr *getMemory(struct solver *S, int mem_size)
 { // Allocate memory of size mem_size
   if (S->mem_used > MEM_MAX - mem_size)
   { // In case the code is used within a code base
-    printf("c out of memory | mem used %d|mem wanted to allocate %d\n", S->mem_used, mem_size);
     halt();
   }
   int __mram_ptr *store = (S->DB + S->mem_used); // Compute a pointer to the new memory location
@@ -597,7 +596,8 @@ int propagate(struct solver *S)
         if (!S->falses[clause[0]])
         { // If the other watched literal is falsified,
           assign(S, clause, forced);
-          update_chb(S, abs(clause[0]), 0.9); // todo : divide by 0.9 propagated units if a conflict occured
+          if(S->config.br_p == BR_CHB)
+            update_chb(S, abs(clause[0]), 0.9); // todo : divide by 0.9 propagated units if a conflict occured
         } // A unit clause is found, and the reason is set
         else
         {
@@ -607,10 +607,14 @@ int propagate(struct solver *S)
           if (!lemma[1])
             forced = 1; // In case a unit clause is found, set forced flag
           assign(S, lemma, forced);
-          for (int i = 0; lemma[i] != 0; i++)
+          if(S->config.br_p == BR_CHB)
           {
-            int var = abs(lemma[i]);
-            S->config.lastConflict[var] = S->nConflicts;
+
+            for (int i = 0; lemma[i] != 0; i++)
+            {
+              int var = abs(lemma[i]);
+              S->config.lastConflict[var] = S->nConflicts;
+            }
           }
           break;
         }
@@ -791,7 +795,7 @@ void initialize_chb(struct solver *S, int num_vars) {
 }
 void populate_solver_context(struct solver *dpu_solver,int * dpu_vars, int* dpu_DB_offsets,config_t config)
 {                     
-  dpu_solver->DB = DPU_MRAM_HEAP_POINTER;
+  dpu_solver->DB =(int __mram_ptr*) DPU_MRAM_HEAP_POINTER;
   dpu_solver->nVars = dpu_vars[0];
   dpu_solver->nClauses = dpu_vars[1];
   dpu_solver->mem_used = dpu_vars[2];
@@ -804,21 +808,24 @@ void populate_solver_context(struct solver *dpu_solver,int * dpu_vars, int* dpu_
   dpu_solver->head = dpu_vars[9];
   dpu_solver->res = dpu_vars[10];
   dpu_solver->decision_counter = dpu_vars[11];
-  dpu_solver->model = dpu_solver->DB + dpu_DB_offsets[0];
-  dpu_solver->next = dpu_solver->DB + dpu_DB_offsets[1];
-  dpu_solver->prev = dpu_solver->DB + dpu_DB_offsets[2];
-  dpu_solver->buffer = dpu_solver->DB + dpu_DB_offsets[3];
-  dpu_solver->reason = dpu_solver->DB + dpu_DB_offsets[4];
-  dpu_solver->falseStack = dpu_solver->DB + dpu_DB_offsets[5];
-  dpu_solver->forced = dpu_solver->DB + dpu_DB_offsets[6];
-  dpu_solver->processed = dpu_solver->DB + dpu_DB_offsets[7];
-  dpu_solver->assigned = dpu_solver->DB + dpu_DB_offsets[8];
-  dpu_solver->falses = dpu_solver->DB + dpu_DB_offsets[9];
-  dpu_solver->first = dpu_solver->DB + dpu_DB_offsets[10];
+  dpu_solver->model = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[0];
+  dpu_solver->next = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[1];
+  dpu_solver->prev = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[2];
+  dpu_solver->buffer = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[3];
+  dpu_solver->reason = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[4];
+  dpu_solver->falseStack = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[5];
+  dpu_solver->forced = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[6];
+  dpu_solver->processed = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[7];
+  dpu_solver->assigned = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[8];
+  dpu_solver->falses = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[9];
+  dpu_solver->first = (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[10];
   dpu_solver->scores= ( float __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[11];
-  dpu_solver->decision_level= dpu_solver->DB + dpu_DB_offsets[12];
+  dpu_solver->decision_level= (int __mram_ptr*)dpu_solver->DB + dpu_DB_offsets[12];
   dpu_solver->config = config;  
-  initialize_chb(dpu_solver,dpu_solver->nVars);
+  dpu_solver->config.lastConflict = NULL;
+  dpu_solver->config.Q = NULL;
+  dpu_solver->config.plays = NULL;
+  //initialize_chb(dpu_solver,dpu_solver->nVars);
   setup_functions();
 }
 extern int dpu_id;

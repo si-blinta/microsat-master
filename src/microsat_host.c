@@ -320,7 +320,6 @@ int *getMemory(struct solver *S, int mem_size)
 { // Allocate memory of size mem_size
   if (S->mem_used > MEM_MAX - mem_size)
   { // In case the code is used within a code base
-    printf("c out of memory | mem used %d|mem wanted to allocate %d\n", S->mem_used, mem_size);
     exit(1);
   }
   int *store = (S->DB + S->mem_used); // Compute a pointer to the new memory location
@@ -443,8 +442,7 @@ void increment(struct solver *S, int lit)
   {
     S->falses[lit] = MARK; // MARK the literal as involved if not a top-level unit
     S->scores[abs(lit)]++;
-    if(S->scores[abs(lit)] < 0.0)
-      printf("overflow %f\n",S->scores[abs(lit)]);
+
   }
 }
 void bump(struct solver *S, int lit)
