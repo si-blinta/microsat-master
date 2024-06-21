@@ -3,7 +3,7 @@ HOST-CFLAGS       = -std=gnu99 -Wall
 HOST-LIBS         = `dpu-pkg-config --cflags --libs dpu` -lm
 DPU-CC            = dpu-upmem-dpurte-clang
 NB_TASKLETS       ?= 1
-DPU_CFLAGS        = -Os -Wall
+DPU_CFLAGS        = -Wall
 all: clean dpu host
 
 local: src/local.c src/microsat_host.c src/log.c 
